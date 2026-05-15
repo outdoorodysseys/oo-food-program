@@ -298,55 +298,107 @@ function extractDate(text){
 }
 
 function parseFlybookRoster(text){
-  var guests=[];
-  // Client info lines: "Name - Email: x - Phone: x - Age: x"
-  var clientRe=/([A-Za-z][a-zA-Z]+(?:[A-Za-z]+)*)-Email:([^\s\-]+)-Phone:([^\s\-]+)-Age:(\d+)/g;
-  var rawClients=[];
+  // Works with pasted text from Preview/Chrome PDF viewer (spaces preserved)
+  // AND with text extracted from PDF binary
+  var guests = [];
+
+  // Step 1: Extract client info — "Name - Email: x - Phone: x - Age: x"
+  // Handles both spaced version ("Sejoon Park - Email:") and merged ("SejoonPark-Email:")
+  var clientRe = /([A-Za-z][a-zA-Z\s]+?)\s*-\s*Email:\s*([^\s]+)\s*-\s*Phone:\s*([^\s]+)\s*-\s*Age:\s*(\d+)/g;
+  var clients = [];
   var cm;
-  while((cm=clientRe.exec(text))!==null){
-    rawClients.push({rawName:cm[1].toLowerCase(),email:cm[2],phone:cm[3]==='N/A'?'':cm[3],age:cm[4]});
+  while ((cm = clientRe.exec(text)) !== null) {
+    clients.push({
+      name: cm[1].trim(),
+      email: cm[2].trim(),
+      phone: cm[3].trim() === 'N/A' ? '' : cm[3].trim(),
+      age: cm[4].trim()
+    });
   }
-  // Proper names from header lines
-  var headerRe=/^([A-Za-z][a-z]+(?: [A-Za-z][a-z]+)+) - [A-Z0-9]+ - \d+ Guest/gm;
-  var properNames=[];
-  var hm;
-  while((hm=headerRe.exec(text))!==null) properNames.push(hm[1]);
-  function toKey(s){return s.toLowerCase().replace(/[^a-z]/g,'');}
-  rawClients.forEach(function(c){
-    var matched=properNames.find(function(n){return toKey(n)===toKey(c.rawName);});
-    c.name=matched||c.rawName;
-  });
-  // Parse Q blocks
-  var sections=text.split('ReservationQuestions');
-  var clientIdx=0;
-  sections.slice(1).forEach(function(section){
-    var lines=section.split('\n').map(function(l){return l.trim();}).filter(Boolean);
-    var guestStarts=[];
-    lines.forEach(function(line,i){
-      if(/\w+-Guest#\d+/.test(line)||/\w+-[A-Z][a-z]+[A-Z][a-z]/.test(line)) guestStarts.push(i);
+
+  // Step 2: Split on "Reservation Questions" (with or without space)
+  var sections = text.split(/Reservation Questions|ReservationQuestions/);
+
+  var clientIdx = 0;
+
+  sections.slice(1).forEach(function(section) {
+    var lines = section.split('\n').map(function(l){ return l.trim(); }).filter(Boolean);
+
+    // Find guest block headers — lines ending in "- Guest #N Name" or "- FirstName LastName"
+    var blockStarts = [];
+    lines.forEach(function(line, i) {
+      if (/ - Guest #\d+ Name$/i.test(line) || / - [A-Z][a-z]+ [A-Z][a-z]+$/.test(line)
+          || /\w+-Guest#\d+/.test(line) || /\w+-[A-Z][a-z]+[A-Z][a-z]/.test(line)) {
+        blockStarts.push(i);
+      }
     });
-    guestStarts.forEach(function(startIdx,gi){
-      var block=lines.slice(startIdx+1, guestStarts[gi+1]||lines.length);
-      var qa={email:'',dietCommon:'NONE',dietOther:'',age:'',height:'',weight:'',sleepingBag:'',tent:'',medical:''};
-      block.forEach(function(line){
-        var ageM=line.match(/^Age (\d+)$/);if(ageM)qa.age=ageM[1];
-        var htM=line.match(/^HeightinInches (.+)$/);if(htM)qa.height=htM[1];
-        var wtM=line.match(/^WeightinPounds (.+)$/);if(wtM)qa.weight=wtM[1];
-        var dietM=line.match(/^CommonDietaryRestrictions (.+)$/);if(dietM&&dietM[1]!=='N/A')qa.dietCommon=dietM[1];
-        var otherM=line.match(/^OtherDietaryRestrictions (.+)$/);if(otherM&&otherM[1]!=='N/A'&&otherM[1].toLowerCase()!=='no')qa.dietOther=otherM[1];
-        var medM=line.match(/^MedicalConditions (.+)$/);if(medM&&medM[1]!=='N/A'&&medM[1].toLowerCase()!=='no')qa.medical=medM[1];
-        var tentM=line.match(/^TentNeeds (.+)$/);if(tentM&&tentM[1]!=='N/A')qa.tent=tentM[1];
-        var sbM=line.match(/^Willyouneedasleepingbagandpad[?]?(.*)$/i);if(sbM){var sv=sbM[1].trim();if(sv&&sv!=='N/A')qa.sleepingBag=sv;}
+
+    blockStarts.forEach(function(startIdx, gi) {
+      var endIdx = blockStarts[gi + 1] || lines.length;
+      var block = lines.slice(startIdx + 1, endIdx);
+
+      var qa = {
+        email:'', dietCommon:'NONE', dietOther:'', age:'',
+        height:'', weight:'', sleepingBag:'', tent:'', medical:''
+      };
+
+      // Known question labels — handle both spaced and merged
+      var KEYS = [
+        ['Email Address Must Be Provided', 'EmailAddressMustBeProvided', 'email'],
+        ['Common Dietary Restrictions', 'CommonDietaryRestrictions', 'dietCommon'],
+        ['Other Dietary Restrictions', 'OtherDietaryRestrictions', 'dietOther'],
+        ['Age', 'Age', 'age'],
+        ['Height in Inches', 'HeightinInches', 'height'],
+        ['Weight in Pounds', 'WeightinPounds', 'weight'],
+        ['Will you need a sleeping bag and pad?', 'Willyouneedasleepingbagandpad', 'sleepingBag'],
+        ['Tent Needs', 'TentNeeds', 'tent'],
+        ['Medical Conditions', 'MedicalConditions', 'medical']
+      ];
+
+      block.forEach(function(line) {
+        KEYS.forEach(function(kdef) {
+          var label = kdef[0], labelMerged = kdef[1], field = kdef[2];
+          var val = null;
+          if (line.indexOf(label) === 0) {
+            val = line.substring(label.length).trim();
+          } else if (line.indexOf(labelMerged) === 0 && label !== labelMerged) {
+            val = line.substring(labelMerged.length).trim();
+          }
+          if (val !== null && val !== 'N/A' && val.toLowerCase() !== 'no' && !qa[field]) {
+            qa[field] = val;
+          }
+        });
       });
-      var client=rawClients[clientIdx]||{};
+
+      var client = clients[clientIdx] || {};
       clientIdx++;
-      if(!client.name||client.name.length<2)return;
-      guests.push({name:client.name,phone:client.phone||'',email:client.email||qa.email||'',age:qa.age||client.age||'',height:qa.height||'',weight:qa.weight||'',dietCommon:qa.dietCommon||'NONE',dietOther:qa.dietOther||'',medical:qa.medical||'',sleepingBag:qa.sleepingBag||'',tent:qa.tent||''});
+      var name = client.name || 'Guest ' + clientIdx;
+      if (!name || name.length < 2) return;
+
+      guests.push({
+        name: name,
+        phone: client.phone || '',
+        email: client.email || qa.email || '',
+        age: qa.age || client.age || '',
+        height: qa.height || '',
+        weight: qa.weight || '',
+        dietCommon: qa.dietCommon || 'NONE',
+        dietOther: qa.dietOther || '',
+        medical: qa.medical || '',
+        sleepingBag: qa.sleepingBag || '',
+        tent: qa.tent || ''
+      });
     });
   });
-  // Dedupe
-  var seen={};
-  return guests.filter(function(g){var k=g.name.toLowerCase();if(seen[k])return false;seen[k]=true;return true;});
+
+  // Dedupe by name
+  var seen = {};
+  return guests.filter(function(g) {
+    var k = g.name.toLowerCase();
+    if (seen[k]) return false;
+    seen[k] = true;
+    return true;
+  });
 }
 
 // ── ACTIVITY ID LOAD ─────────────────────────────────────────
