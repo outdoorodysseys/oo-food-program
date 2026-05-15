@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OO Food Program — Trip Packet Generator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--forest:#1B4332;--sage:#40916C;--mint:#B7E4C7;--pale:#F0F7F2;--ink:#1a1a18;--muted:#6b7068;--stone:#E8EDE8;--red:#B83232;--cream:#FAFAF5;--white:#fff;--ocean:#023E8A}
+body{font-family:Arial,sans-serif;background:var(--cream);color:var(--ink)}
+.nav{background:var(--forest);padding:0 24px;display:flex;align-items:center;justify-content:space-between;height:52px;position:sticky;top:0;z-index:100}
+.nl{font-size:17px;color:#fff;font-weight:700}.ns{font-size:9px;color:rgba(255,255,255,.5);letter-spacing:.1em;text-transform:uppercase}
+.nb{padding:4px 12px;border-radius:12px;font-size:11px;font-weight:600}
+.nb.ok{background:#2d6a4f;color:#fff}.nb.err{background:#e63946;color:#fff}.nb.warn{background:#e9c46a;color:#333}
+.main{display:grid;grid-template-columns:280px 1fr;min-height:calc(100vh - 52px)}
+.sidebar{background:#fff;border-right:1.5px solid var(--stone);padding:18px;overflow-y:auto;display:flex;flex-direction:column;gap:12px;position:sticky;top:52px;height:calc(100vh - 52px)}
+.content{overflow-y:auto;padding:0}
+.step{display:flex;align-items:center;gap:7px;padding:5px 7px;border-radius:4px;font-size:11px;color:var(--muted)}
+.step.act{background:var(--pale);color:var(--forest);font-weight:700}.step.dn{color:var(--sage)}
+.sn{width:18px;height:18px;border-radius:50%;background:var(--stone);display:flex;align-items:center;justify-content:center;font-size:9px;flex-shrink:0}
+.step.act .sn{background:var(--forest);color:#fff}.step.dn .sn{background:var(--mint);color:var(--forest)}
+.btn{width:100%;padding:10px;border:none;border-radius:4px;font-size:12px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.04em;margin-top:4px}
+.btn:disabled{background:#aaa;cursor:not-allowed}
+.bp{background:var(--forest);color:#fff}.bp:hover:not(:disabled){background:var(--sage)}
+.bb{background:var(--ocean);color:#fff}.bb:hover{background:#0353a4}
+.bs{background:var(--stone);color:var(--ink)}.bs:hover{background:#d4dcd4}
+.inp{width:100%;padding:9px 11px;border:1.5px solid var(--stone);border-radius:4px;font-size:13px;background:var(--pale);outline:none}
+.inp:focus{border-color:var(--sage)}
+.lbl{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:5px;display:block}
+.lg{font-size:10px;color:var(--muted);line-height:1.8;max-height:100px;overflow-y:auto;font-family:monospace}
+.le{color:var(--red)}.lo{color:var(--sage)}
+.sp{width:28px;height:28px;border:3px solid var(--stone);border-top-color:var(--forest);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto}
+@keyframes spin{to{transform:rotate(360deg)}}
+.ph{background:var(--forest);color:#fff;padding:20px 26px}
+.pt{font-size:22px;font-weight:700;margin-bottom:5px}
+.pm{font-size:11px;opacity:.7;display:flex;gap:14px;flex-wrap:wrap}
+.pb{padding:20px}
+.card{border:1.5px solid var(--stone);border-radius:6px;padding:16px;margin-bottom:12px}
+.card.primary{border-color:var(--forest);border-width:2px}
+.card-title{font-weight:700;color:var(--forest);font-size:14px;margin-bottom:6px}
+.card-sub{font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.5}
+.sb{padding:14px 0;border-bottom:1.5px solid var(--stone)}.sb:last-child{border-bottom:none}
+.sh{font-size:15px;font-weight:700;color:var(--forest);margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--stone)}
+.al{background:#fff3cd;border:1.5px solid #ffc107;border-radius:5px;padding:10px 14px;font-size:12px;margin-bottom:10px}
+.fl{display:inline-block;padding:2px 6px;border-radius:3px;font-size:10px;font-weight:700;margin:1px}
+.fd{background:#fee2e2;color:#991b1b}.fo{background:var(--mint);color:var(--forest)}.fn{background:#fef3c7;color:#92400e}.fg{background:#dbeafe;color:#1e40af}.fp{background:#fdf4ff;color:#7e22ce}
+.rt{width:100%;border-collapse:collapse;font-size:13px}
+.rt th{background:var(--forest);color:#fff;padding:8px 10px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
+.rt td{padding:9px 10px;border-bottom:1px solid var(--stone);vertical-align:top}
+.rt tr:nth-child(even) td{background:var(--pale)}
+.tp{border:1.5px solid var(--stone);border-radius:6px;padding:12px 14px;margin-bottom:8px;cursor:pointer;display:flex;align-items:flex-start;gap:10px;transition:border-color .15s,background .15s}
+.tp:hover{border-color:var(--sage);background:var(--pale)}.tp.sel{border-color:var(--forest);background:var(--pale)}.tp.done{border-color:#86efac;background:#f0fdf4}
+.tp-cb{width:16px;height:16px;accent-color:var(--forest);flex-shrink:0;margin-top:2px;cursor:pointer}
+.tp-name{font-size:13px;font-weight:700;color:var(--forest);margin-bottom:3px}
+.tp-meta{font-size:11px;color:var(--muted);display:flex;gap:10px;flex-wrap:wrap}
+.tp-badge{background:#16a34a;color:#fff;font-size:9px;font-weight:700;padding:2px 7px;border-radius:20px;text-transform:uppercase;margin-left:6px}
+.db{border:1.5px solid var(--stone);border-radius:6px;margin-bottom:10px;overflow:hidden}
+.dh{background:var(--forest);color:#fff;padding:8px 14px;font-size:12px;font-weight:700;display:flex;align-items:center;gap:8px}
+.dn2{background:rgba(255,255,255,.2);border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
+.dm{padding:10px 12px}
+.mr{display:grid;grid-template-columns:80px 1fr;align-items:center;gap:8px;margin-bottom:7px}.mr:last-child{margin-bottom:0}
+.mt{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700}
+.ms{width:100%;padding:6px 8px;border:1.5px solid var(--stone);border-radius:4px;font-size:12px;background:var(--pale);outline:none}
+.ms:focus{border-color:var(--sage)}.ms.on{border-color:var(--sage);background:#f0fdf4}
+.mc{border:1.5px solid var(--stone);border-radius:6px;margin-bottom:10px;overflow:hidden}
+.mch{padding:8px 12px;display:flex;justify-content:space-between;align-items:center;border-bottom:1.5px solid var(--stone)}
+.mcn{font-weight:700;color:var(--forest);font-size:13px}
+.mck{font-size:9px;background:var(--forest);color:#fff;padding:2px 7px;border-radius:20px;text-transform:uppercase}
+.mcb{padding:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.il{font-size:12px;line-height:2;list-style:none}.il li::before{content:'\00B7 ';color:var(--sage)}
+.nt{font-size:11px;color:var(--muted);font-style:italic;background:var(--pale);padding:8px;border-radius:4px;line-height:1.5}
+.md{background:#fff3cd;border:1px solid #ffc107;border-radius:3px;padding:5px;font-size:11px;margin-top:4px;color:#664d03}
+.sl-sec{margin-bottom:14px}
+.sl-hdr{font-size:10px;text-transform:uppercase;letter-spacing:.08em;background:var(--forest);color:#fff;padding:5px 10px;border-radius:3px;margin-bottom:4px;display:flex;justify-content:space-between}
+.sl-grid{display:grid;grid-template-columns:1fr 1fr;gap:3px}
+.sl-item{display:flex;align-items:center;gap:6px;padding:5px 8px;background:var(--pale);border-radius:3px;font-size:12px}
+.sl-item input{accent-color:var(--forest);flex-shrink:0}
+.sl-qty{font-size:11px;color:var(--sage);min-width:50px;font-weight:700}
+.sl-src{font-size:9px;color:var(--muted);margin-left:auto;white-space:nowrap}
+.sl-gp{background:#dbeafe;color:#1e40af;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px;white-space:nowrap}
+@media print{
+  .sidebar,.nav{display:none!important}
+  .main{display:block!important}
+  .content{overflow:visible!important}
+  .no-print{display:none!important}
+  .db,.mc{break-inside:avoid}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+  <div style="display:flex;align-items:center;gap:10px">
+    <span style="font-size:22px">&#x1F6F6;</span>
+    <div><div class="nl">Outdoor Odysseys</div><div class="ns">Food Program &middot; Trip Packet Generator</div></div>
+  </div>
+  <span class="nb warn" id="nbadge">Ready</span>
+</nav>
+<div class="main">
+  <div class="sidebar">
+    <div style="display:flex;flex-direction:column;gap:3px">
+      <div class="step act" id="s1"><div class="sn">1</div>Select Trips</div>
+      <div class="step" id="s2"><div class="sn">2</div>Plan Menus</div>
+      <div class="step" id="s3"><div class="sn">3</div>Print Packets</div>
+    </div>
+    <div id="sel-actions" style="display:none">
+      <button class="btn bp" id="plan-btn" onclick="startPlanning()">&#x25B6; Plan Selected Trips</button>
+    </div>
+    <div id="plan-actions" style="display:none">
+      <button class="btn bp" id="gbtn" onclick="generateAll()">&#x26A1; Generate Packets</button>
+      <button class="btn bb no-print" onclick="window.print()">&#x1F5A8; Print All</button>
+      <button class="btn bs no-print" onclick="backToList()">&#x2190; Back to Trips</button>
+    </div>
+    <div><span class="lbl">Log</span><div class="lg" id="log"></div></div>
+  </div>
+  <div class="content" id="con">
+    <div class="ph"><div class="pt">Outdoor Odysseys Food Program</div><div class="pm"><span>Trip Packet Generator</span></div></div>
+    <div class="pb" id="landing">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:16px">Get started by loading a trip:</div>
+      <div style="display:flex;flex-direction:column;gap:12px;max-width:520px">
+
+        <div class="card primary">
+          <div class="card-title">&#x1F4CB; Paste Flybook Roster</div>
+          <div class="card-sub">In Flybook, open the trip roster PDF &rarr; <strong>Cmd+A</strong> to select all &rarr; <strong>Cmd+C</strong> to copy &rarr; paste below:</div>
+          <textarea id="paste-roster" rows="7" style="width:100%;font-size:11px;padding:8px;border:1.5px solid var(--stone);border-radius:4px;font-family:monospace;resize:vertical" placeholder="Paste roster text here..."></textarea>
+          <button class="btn bp" style="margin-top:8px;width:auto;padding:9px 20px" onclick="processPastedRoster()">&#x25B6; Import Roster</button>
+          <span id="paste-status" style="margin-left:10px;font-size:12px;color:var(--sage)"></span>
+        </div>
+
+        <div class="card">
+          <div class="card-title">&#x1F4C4; Upload Roster PDF</div>
+          <div class="card-sub">Select the PDF file directly — no copy/paste needed.</div>
+          <input type="file" id="pdf-upload" accept=".pdf" style="display:none" onchange="handlePDFUpload(this)">
+          <button class="btn bp" style="width:auto;padding:9px 20px" onclick="document.getElementById('pdf-upload').click()">Choose PDF File</button>
+          <span id="pdf-status" style="margin-left:10px;font-size:12px;color:var(--sage)"></span>
+        </div>
+
+        <div class="card">
+          <div class="card-title">&#x1F522; Load by Activity ID</div>
+          <div class="card-sub">Find the ID in Flybook by clicking a trip — it is the number at the end of the URL.</div>
+          <div style="display:flex;gap:8px">
+            <input class="inp" id="manual-id" placeholder="e.g. 4521057" style="margin:0;flex:1" onkeydown="if(event.key==='Enter')addManual()">
+            <button class="btn bp" style="width:auto;padding:9px 16px;margin:0" onclick="addManual()">Load</button>
+          </div>
+          <div id="load-status" style="margin-top:8px;font-size:12px;color:var(--muted);display:none"></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── CONFIG ──────────────────────────────────────────────────
+var APPS_SCRIPT = 'https://script.google.com/macros/s/AKfycbwz6PEkFm4GVDhkmlrqYpzkHQJ2gbrL9SCFWknzXHjVvIsITMaCWeyUi11zDcAB2Nrq/exec';
+var FLYBOOK_BASE = 'https://go.theflybook.com';
+var MTYPES = ['Breakfast','Appetizer','Lunch','Dinner','Dessert','Snacks'];
+var CC = {Breakfast:'#fffbeb',Lunch:'#f0fdf4',Appetizer:'#fef2f2',Dinner:'#eff6ff',Dessert:'#fdf4ff',Snacks:'#f5f5f5'};
+
+var S = {allTrips:[],selectedIds:[],tripData:{},recipes:[],inv:[],plans:{},packetLog:[]};
+
+// ── UTILS ────────────────────────────────────────────────────
+function log(m,t){var el=document.getElementById('log');var d=document.createElement('div');d.className=t==='err'?'le':t==='ok'?'lo':'';d.textContent='['+new Date().toLocaleTimeString('en',{hour12:false,hour:'2-digit',minute:'2-digit'})+'] '+m;el.prepend(d);}
+function badge(t,tp){var el=document.getElementById('nbadge');el.textContent=t;el.className='nb '+(tp||'warn');}
+function setstep(n){for(var i=1;i<=3;i++){var el=document.getElementById('s'+i);if(!el)return;if(i<n){el.className='step dn';el.querySelector('.sn').textContent='\u2713';}else if(i===n){el.className='step act';el.querySelector('.sn').textContent=i;}else{el.className='step';el.querySelector('.sn').textContent=i;}}}
+function getDays(trip){var ms=new Date(trip.endTime||trip.end)-new Date(trip.startTime||trip.start);return Math.max(1,Math.ceil(ms/(1000*60*60*24)));}
+function getDayLabel(trip,i){var d=new Date(new Date(trip.startTime||trip.start).getTime()+i*86400000);return d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});}
+function fmtDate(ts){return new Date(ts).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});}
+function sc(ing,n){var m=ing.match(/^([\d.]+)\s*(oz|lb|lbs|cup|cups|tbsp|tsp|can|cans|bunch|clove|cloves|bag|scoop|slice|slices)?\s*(.*)/i);if(!m)return ing;var q=parseFloat(m[1]),u=m[2]||'',it=m[3];var sv=Math.round(q*n*10)/10;return(sv===Math.floor(sv)?Math.floor(sv):sv)+(u?' '+u:'')+' '+it;}
+function isDone(id){return S.packetLog.some(function(e){return String(e.activityId)===String(id);});}
+
+// ── APPS SCRIPT API ──────────────────────────────────────────
+function apiFetch(action, params) {
+  var url = APPS_SCRIPT + '?action=' + action;
+  if (params) Object.keys(params).forEach(function(k){ url += '&'+encodeURIComponent(k)+'='+encodeURIComponent(params[k]); });
+  return fetch(url).then(function(r){return r.json();});
+}
+
+// ── FLYBOOK API (direct from browser) ───────────────────────
+function flybookFetch(path, opts) {
+  return fetch(FLYBOOK_BASE + path, Object.assign({credentials:'include'}, opts||{})).then(function(r){
+    if (!r.ok) throw new Error('Flybook '+r.status);
+    return r.json();
+  });
+}
+
+// ── INIT ─────────────────────────────────────────────────────
+window.addEventListener('load', function(){
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  // Load recipes and packet log in background
+  apiFetch('getRecipes').then(function(r){if(r.success){S.recipes=r.recipes||[];log(S.recipes.length+' recipes','ok');}}).catch(function(){});
+  apiFetch('getPacketLog').then(function(r){if(r.success)S.packetLog=r.log||[];}).catch(function(){});
+  // Try to load upcoming trips from Flybook calendar
+  loadUpcomingTrips();
+});
+
+function loadUpcomingTrips(){
+  var today = new Date();
+  var twoWeeks = new Date(today.getTime()+14*24*60*60*1000);
+  var fmt = function(d){return d.toISOString();};
+  flybookFetch('/Calendar/Activities', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({start:fmt(today),end:fmt(twoWeeks)})
+  }).then(function(data){
+    var trips = Array.isArray(data) ? data : [];
+    // Filter to multiday overnight trips only
+    trips = trips.filter(function(t){
+      var ms = new Date(t.endTime||t.end) - new Date(t.startTime||t.start);
+      return Math.ceil(ms/(1000*60*60*24)) >= 1;
+    });
+    if(trips.length){
+      S.allTrips = trips;
+      badge(trips.length+' trips','ok');
+      log(trips.length+' upcoming trips loaded','ok');
+      showTripList();
+    }
+  }).catch(function(){
+    // Silently fail — user can still use paste/ID methods
+  });
+}
+
+// ── PDF IMPORT ───────────────────────────────────────────────
+function handlePDFUpload(input){
+  var file = input.files[0];
+  if(!file) return;
+  var statusEl = document.getElementById('pdf-status');
+  statusEl.textContent = 'Reading PDF...';
+  var reader = new FileReader();
+  reader.onload = function(e){
+    var arr = new Uint8Array(e.target.result);
+    pdfjsLib.getDocument(arr).promise.then(function(pdf){
+      var pages = [];
+      for(var p=1;p<=pdf.numPages;p++) pages.push(p);
+      return Promise.all(pages.map(function(p){
+        return pdf.getPage(p).then(function(page){
+          return page.getTextContent().then(function(tc){
+            return tc.items.map(function(i){return i.str;}).join('\n');
+          });
+        });
+      }));
+    }).then(function(pageTexts){
+      var text = pageTexts.join('\n');
+      statusEl.textContent = '';
+      processPDFText(text, statusEl);
+    }).catch(function(e){
+      statusEl.textContent = 'PDF error: '+e.message;
+      log('PDF error: '+e.message,'err');
+    });
+  };
+  reader.readAsArrayBuffer(file);
+  input.value='';
+}
+
+function processPastedRoster(){
+  var ta = document.getElementById('paste-roster');
+  if(!ta||!ta.value.trim()){alert('Paste roster text first');return;}
+  var statusEl = document.getElementById('paste-status');
+  processPDFText(ta.value, statusEl);
+  if(statusEl.textContent.indexOf('Imported')>-1) ta.value='';
+}
+
+function processPDFText(text, statusEl){
+  var guests = parseFlybookRoster(text);
+  if(!guests.length){
+    statusEl.textContent = 'Could not find guests. Check the text is from a Flybook roster.';
+    return;
+  }
+  var tripName = extractTripName(text) || 'Imported Roster';
+  var dateStr = extractDate(text);
+  var tripId = 'pdf_'+Date.now();
+  var startTime = dateStr || new Date().toISOString();
+  var endTime = new Date(new Date(startTime).getTime()+3*86400000).toISOString();
+  var trip = {id:tripId,activityId:tripId,activityName:tripName,startTime:startTime,endTime:endTime,numberGoing:guests.length};
+  S.allTrips.unshift(trip);
+  S.tripData[tripId] = {trip:trip, guests:guests};
+  var days = getDays(trip);
+  S.plans[tripId] = [];
+  for(var i=0;i<days;i++){var day={};MTYPES.forEach(function(t){day[t]='';});S.plans[tripId].push(day);}
+  statusEl.textContent = 'Imported '+guests.length+' guests for '+tripName;
+  log('PDF: '+guests.length+' guests, '+tripName,'ok');
+  showTripList();
+  setTimeout(function(){
+    var cb=document.getElementById('cb-'+tripId);
+    if(cb){cb.checked=true;cb.closest('.tp').classList.add('sel');updateSelActions();}
+  },150);
+}
+
+// ── FLYBOOK ROSTER PARSER ────────────────────────────────────
+function extractTripName(text){
+  var m=text.match(/^(.+?)\s*-\s*\d+\s*Guest/m)||text.match(/^(.{10,80}(?:Tour|Trip|Kayak|Camp|Island)[^\n]*)/m);
+  return m?m[1].trim():null;
+}
+function extractDate(text){
+  var m=text.match(/(\d{1,2}\/\d{1,2}\/\d{4})/)||text.match(/([A-Z][a-z]+ \d{1,2},?\s*\d{4})/);
+  if(m){var d=new Date(m[1]);if(!isNaN(d))return d.toISOString();}
+  return null;
+}
+
+function parseFlybookRoster(text){
+  var guests=[];
+  // Client info lines: "Name - Email: x - Phone: x - Age: x"
+  var clientRe=/([A-Za-z][a-zA-Z]+(?:[A-Za-z]+)*)-Email:([^\s\-]+)-Phone:([^\s\-]+)-Age:(\d+)/g;
+  var rawClients=[];
+  var cm;
+  while((cm=clientRe.exec(text))!==null){
+    rawClients.push({rawName:cm[1].toLowerCase(),email:cm[2],phone:cm[3]==='N/A'?'':cm[3],age:cm[4]});
+  }
+  // Proper names from header lines
+  var headerRe=/^([A-Za-z][a-z]+(?: [A-Za-z][a-z]+)+) - [A-Z0-9]+ - \d+ Guest/gm;
+  var properNames=[];
+  var hm;
+  while((hm=headerRe.exec(text))!==null) properNames.push(hm[1]);
+  function toKey(s){return s.toLowerCase().replace(/[^a-z]/g,'');}
+  rawClients.forEach(function(c){
+    var matched=properNames.find(function(n){return toKey(n)===toKey(c.rawName);});
+    c.name=matched||c.rawName;
+  });
+  // Parse Q blocks
+  var sections=text.split('ReservationQuestions');
+  var clientIdx=0;
+  sections.slice(1).forEach(function(section){
+    var lines=section.split('\n').map(function(l){return l.trim();}).filter(Boolean);
+    var guestStarts=[];
+    lines.forEach(function(line,i){
+      if(/\w+-Guest#\d+/.test(line)||/\w+-[A-Z][a-z]+[A-Z][a-z]/.test(line)) guestStarts.push(i);
+    });
+    guestStarts.forEach(function(startIdx,gi){
+      var block=lines.slice(startIdx+1, guestStarts[gi+1]||lines.length);
+      var qa={email:'',dietCommon:'NONE',dietOther:'',age:'',height:'',weight:'',sleepingBag:'',tent:'',medical:''};
+      block.forEach(function(line){
+        var ageM=line.match(/^Age (\d+)$/);if(ageM)qa.age=ageM[1];
+        var htM=line.match(/^HeightinInches (.+)$/);if(htM)qa.height=htM[1];
+        var wtM=line.match(/^WeightinPounds (.+)$/);if(wtM)qa.weight=wtM[1];
+        var dietM=line.match(/^CommonDietaryRestrictions (.+)$/);if(dietM&&dietM[1]!=='N/A')qa.dietCommon=dietM[1];
+        var otherM=line.match(/^OtherDietaryRestrictions (.+)$/);if(otherM&&otherM[1]!=='N/A'&&otherM[1].toLowerCase()!=='no')qa.dietOther=otherM[1];
+        var medM=line.match(/^MedicalConditions (.+)$/);if(medM&&medM[1]!=='N/A'&&medM[1].toLowerCase()!=='no')qa.medical=medM[1];
+        var tentM=line.match(/^TentNeeds (.+)$/);if(tentM&&tentM[1]!=='N/A')qa.tent=tentM[1];
+        var sbM=line.match(/^Willyouneedasleepingbagandpad[?]?(.*)$/i);if(sbM){var sv=sbM[1].trim();if(sv&&sv!=='N/A')qa.sleepingBag=sv;}
+      });
+      var client=rawClients[clientIdx]||{};
+      clientIdx++;
+      if(!client.name||client.name.length<2)return;
+      guests.push({name:client.name,phone:client.phone||'',email:client.email||qa.email||'',age:qa.age||client.age||'',height:qa.height||'',weight:qa.weight||'',dietCommon:qa.dietCommon||'NONE',dietOther:qa.dietOther||'',medical:qa.medical||'',sleepingBag:qa.sleepingBag||'',tent:qa.tent||''});
+    });
+  });
+  // Dedupe
+  var seen={};
+  return guests.filter(function(g){var k=g.name.toLowerCase();if(seen[k])return false;seen[k]=true;return true;});
+}
+
+// ── ACTIVITY ID LOAD ─────────────────────────────────────────
+function addManual(){
+  var id=(document.getElementById('manual-id')||{}).value.trim();
+  if(!id){alert('Enter an Activity ID');return;}
+  var statusEl=document.getElementById('load-status');
+  statusEl.style.display='block';
+  statusEl.textContent='Loading trip '+id+'...';
+  // Fetch directly from Flybook using browser session
+  flybookFetch('/activities/scheduled/'+id).then(function(trip){
+    onTripLoaded(trip,statusEl);
+  }).catch(function(){
+    // Try alternate endpoint
+    flybookFetch('/api/v1/activities/scheduled/'+id).then(function(trip){
+      onTripLoaded(trip,statusEl);
+    }).catch(function(e){
+      statusEl.textContent = 'Could not load trip. Make sure you are logged into Flybook in this browser.';
+      log('Trip load failed: '+e.message,'err');
+    });
+  });
+}
+
+function onTripLoaded(trip, statusEl){
+  var tid=String(trip.id||trip.activityId);
+  S.allTrips.unshift(trip);
+  S.tripData[tid]={trip:trip,guests:[]};
+  var days=getDays(trip);
+  S.plans[tid]=[];
+  for(var i=0;i<days;i++){var day={};MTYPES.forEach(function(t){day[t]='';});S.plans[tid].push(day);}
+  if(statusEl)statusEl.textContent='';
+  log('Loaded: '+trip.activityName,'ok');
+  showTripList();
+  setTimeout(function(){
+    var cb=document.getElementById('cb-'+tid);
+    if(cb){cb.checked=true;cb.closest('.tp').classList.add('sel');updateSelActions();}
+  },150);
+}
+
+// ── TRIP LIST ────────────────────────────────────────────────
+function showTripList(){
+  setstep(1);
+  document.getElementById('sel-actions').style.display='none';
+  document.getElementById('plan-actions').style.display='none';
+  S.selectedIds=[];
+  var doneCount=S.allTrips.filter(function(t){return isDone(t.id||t.activityId);}).length;
+  var cards=S.allTrips.map(function(t){
+    var id=String(t.id||t.activityId);
+    var name=t.activityName||t.name||'Trip #'+id;
+    var days=getDays(t);
+    var done=isDone(id);
+    return '<div class="tp'+(done?' done':'')+'" onclick="toggleTrip(\''+id+'\',this)">'
+      +'<input type="checkbox" class="tp-cb" id="cb-'+id+'" onclick="event.stopPropagation()" onchange="toggleTripById(\''+id+'\')">'
+      +'<div><div class="tp-name">'+name+(done?'<span class="tp-badge">\u2713 Done</span>':'')+'</div>'
+      +'<div class="tp-meta"><span>&#x1F4C5; '+fmtDate(t.startTime||t.start)+' &ndash; '+fmtDate(t.endTime||t.end)+'</span>'
+      +'<span>&#x1F4C6; '+days+' day'+(days>1?'s':'')+'</span>'
+      +'<span>&#x1F465; '+(t.numberGoing||'?')+' guests</span></div></div></div>';
+  }).join('');
+
+  var landing=document.getElementById('landing');
+  if(landing) landing.style.display='none';
+  document.getElementById('con').innerHTML=
+    '<div class="ph"><div class="pt">Upcoming Trips</div>'
+    +'<div class="pm"><span>'+S.allTrips.length+' trips</span>'+(doneCount?'<span>\u2713 '+doneCount+' done</span>':'')+'</div></div>'
+    +'<div class="pb"><div style="font-size:12px;color:var(--muted);margin-bottom:12px">Check one or more trips then click Plan.</div>'
+    +cards
+    +'<div style="margin-top:16px;border-top:1.5px solid var(--stone);padding-top:14px">'
+    +'<div style="font-size:11px;color:var(--muted);margin-bottom:8px">Add another trip:</div>'
+    +'<div style="display:flex;gap:8px;max-width:360px">'
+    +'<input class="inp" id="manual-id2" placeholder="Activity ID or paste roster" style="margin:0;flex:1">'
+    +'<button class="btn bp" style="width:auto;padding:8px 14px;margin:0" onclick="addManual2()">+Add</button></div></div></div>';
+}
+
+function addManual2(){
+  var id=(document.getElementById('manual-id2')||{}).value.trim();
+  if(!id)return;
+  document.getElementById('manual-id2').value='';
+  flybookFetch('/activities/scheduled/'+id).then(function(t){onTripLoaded(t,null);}).catch(function(){});
+}
+
+function toggleTrip(id,el){var cb=document.getElementById('cb-'+id);cb.checked=!cb.checked;el.classList.toggle('sel',cb.checked);updateSelActions();}
+function toggleTripById(id){var cb=document.getElementById('cb-'+id);cb.closest('.tp').classList.toggle('sel',cb.checked);updateSelActions();}
+function updateSelActions(){
+  S.selectedIds=S.allTrips.filter(function(t){var cb=document.getElementById('cb-'+String(t.id||t.activityId));return cb&&cb.checked;}).map(function(t){return String(t.id||t.activityId);});
+  document.getElementById('sel-actions').style.display=S.selectedIds.length?'block':'none';
+  var btn=document.getElementById('plan-btn');
+  if(btn)btn.textContent='\u25B6 Plan '+S.selectedIds.length+' Trip'+(S.selectedIds.length>1?'s':'');
+}
+
+function backToList(){S.selectedIds=[];showTripList();}
+
+// ── PLANNING ─────────────────────────────────────────────────
+function startPlanning(){
+  if(!S.selectedIds.length){alert('Select at least one trip');return;}
+  setstep(2);
+  document.getElementById('sel-actions').style.display='none';
+  document.getElementById('plan-actions').style.display='block';
+
+  // Load guest data for trips that don't have it yet
+  var loads=S.selectedIds.map(function(id){
+    var td=S.tripData[id];
+    if(!td){
+      // Create placeholder
+      var trip=S.allTrips.find(function(t){return String(t.id||t.activityId)===id;})||{id:id,activityId:id,activityName:'Trip #'+id,startTime:new Date().toISOString(),endTime:new Date(Date.now()+3*86400000).toISOString(),numberGoing:0};
+      S.tripData[id]={trip:trip,guests:[]};
+    }
+    var td2=S.tripData[id];
+    if(td2.guests.length>0) return Promise.resolve(); // already have guests
+    // Try to load guests from Flybook
+    var trip=td2.trip;
+    var resLoads=(trip.reservations||[]).map(function(res){
+      return flybookFetch('/Reservations/'+res.id+'/Questions').then(function(qs){
+        var cls=(trip.clients||[]).filter(function(c){return c.resId===res.id;});
+        var grps={};
+        (qs||[]).forEach(function(q){var k=q.secondaryIdentifier||'Guest';if(!grps[k])grps[k]={};grps[k][q.shortQuery||q.query]=q.answer||'';});
+        Object.keys(grps).forEach(function(lbl,i){
+          var ans=grps[lbl],cl=cls[i]||{};
+          td2.guests.push({name:cl.name||lbl,phone:cl.phone||'',email:cl.email||'',age:ans['Age']||'',height:ans['Height in Inches']||'',weight:ans['Weight in Pounds']||'',dietCommon:ans['Common Dietary Restrictions']||'NONE',dietOther:ans['Other Dietary Restrictions']||'',medical:ans['Medical Conditions']||'',sleepingBag:ans['Will you need a sleeping bag and pad?']||'',tent:ans['Tent Needs']||''});
+        });
+      }).catch(function(){});
+    });
+    return Promise.all(resLoads);
+  });
+
+  Promise.all(loads).then(function(){showPlanners();}).catch(function(){showPlanners();});
+}
+
+function showPlanners(){
+  var html='';
+  S.selectedIds.forEach(function(id){
+    var td=S.tripData[id];if(!td)return;
+    var trip=td.trip,gs=td.guests;
+    var days=getDays(trip);
+    var n=trip.numberGoing||gs.length||1;
+    var dflags=[];
+    gs.forEach(function(g){if(g.dietCommon&&g.dietCommon!=='NONE')g.dietCommon.split('|').forEach(function(d){if(dflags.indexOf(d.trim())===-1)dflags.push(d.trim());});});
+    var dAlert=dflags.length?'<div class="al">&#x26A0; Dietary flags: '+dflags.map(function(f){return '<span class="fl fd">'+f+'</span>';}).join('')+'</div>':'';
+    var planner='';
+    for(var d=0;d<days;d++){
+      var mrows='';
+      MTYPES.forEach(function(mt){
+        var opts='<option value="">-- Skip --</option>';
+        S.recipes.filter(function(r){return r['Category']===mt;}).forEach(function(r){
+          var tags=(r['GF?']==='Yes'?' [GF]':'')+(r['Vegan?']==='Yes'?' [VN]':'');
+          var sel=(S.plans[id]&&S.plans[id][d]&&S.plans[id][d][mt]===r['Recipe Name'])?' selected':'';
+          opts+='<option value="'+r['Recipe Name']+'"'+sel+'>'+r['Recipe Name']+tags+'</option>';
+        });
+        var val=S.plans[id]&&S.plans[id][d]?S.plans[id][d][mt]:'';
+        mrows+='<div class="mr"><span class="mt">'+mt+'</span>'
+          +'<select class="ms'+(val?' on':'')+'" data-trip="'+id+'" data-day="'+d+'" data-meal="'+mt+'" onchange="setMeal(this)">'+opts+'</select></div>';
+      });
+      planner+='<div class="db"><div class="dh"><div class="dn2">'+(d+1)+'</div>Day '+(d+1)+' &mdash; '+getDayLabel(trip,d)+'</div><div class="dm">'+mrows+'</div></div>';
+    }
+    html+='<div style="margin-bottom:24px">'
+      +'<div class="ph" style="border-radius:6px 6px 0 0"><div class="pt">'+trip.activityName+'</div>'
+      +'<div class="pm"><span>&#x1F4C5; '+fmtDate(trip.startTime)+'</span><span>&#x1F465; '+n+' guests</span><span>&#x1F4C6; '+days+' days</span></div></div>'
+      +'<div style="border:1.5px solid var(--stone);border-top:none;padding:16px;border-radius:0 0 6px 6px">'
+      +dAlert+'<div style="font-size:11px;color:var(--muted);margin-bottom:12px">Assign meals. Leave as Skip to omit.</div>'
+      +planner+'</div></div>';
+  });
+  document.getElementById('con').innerHTML='<div class="pb">'+html+'</div>';
+}
+
+function setMeal(el){
+  var id=el.dataset.trip,d=parseInt(el.dataset.day),mt=el.dataset.meal;
+  if(!S.plans[id])S.plans[id]=[];
+  if(!S.plans[id][d]){var day={};MTYPES.forEach(function(t){day[t]='';});S.plans[id][d]=day;}
+  S.plans[id][d][mt]=el.value;
+  el.className='ms'+(el.value?' on':'');
+}
+
+// ── PACKET GENERATION ────────────────────────────────────────
+function generateAll(){
+  var hasMeal=false;
+  S.selectedIds.forEach(function(id){(S.plans[id]||[]).forEach(function(day){MTYPES.forEach(function(t){if(day[t])hasMeal=true;});});});
+  if(!hasMeal){alert('Assign at least one meal first');return;}
+  document.getElementById('gbtn').disabled=true;
+  setstep(3);
+  // Get inventory
+  apiFetch('getInventory').then(function(r){if(r.success)S.inv=r.inventory||[];}).catch(function(){}).then(function(){
+    var html='';
+    S.selectedIds.forEach(function(id){
+      var td=S.tripData[id];if(!td)return;
+      html+=buildPacket(id,td.trip,td.guests,S.plans[id]||[]);
+      // Mark done
+      apiFetch('markPacket',{activityId:id,tripName:encodeURIComponent(td.trip.activityName||''),generatedBy:'guide'}).then(function(r){if(r.success&&r.entry)S.packetLog.push(r.entry);}).catch(function(){});
+    });
+    document.getElementById('con').innerHTML='<div class="pb">'+html+'</div>';
+    document.getElementById('gbtn').disabled=false;
+    log('All packets built','ok');
+  });
+}
+
+function buildPacket(id,trip,gs,plan){
+  var n=trip.numberGoing||gs.length||1;
+  var days=getDays(trip);
+  var sd=new Date(trip.startTime).toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+  var ed=new Date(trip.endTime).toLocaleDateString('en-US',{month:'long',day:'numeric'});
+  var pd=new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  var dfs={},dns=[];
+  gs.forEach(function(g){if(g.dietCommon&&g.dietCommon!=='NONE')g.dietCommon.split('|').forEach(function(d){dfs[d.trim()]=true;});if(g.dietOther&&g.dietOther.trim()&&g.dietOther.toLowerCase()!=='none'&&g.dietOther.toLowerCase()!=='no')dns.push({name:g.name,note:g.dietOther.trim()});});
+  var dfKeys=Object.keys(dfs);
+  var ah=(dfKeys.length||dns.length)?'<div class="al">&#x26A0; <strong>Dietary flags:</strong> '+dfKeys.map(function(f){return '<span class="fl fd">'+f+'</span>';}).join('')+dns.map(function(x){return '<br>&middot; <strong>'+x.name+'</strong>: '+x.note;}).join('')+'</div>':'';
+
+  // Roster
+  var rrows=gs.length?gs.map(function(g){
+    var df='';
+    if(g.dietCommon&&g.dietCommon!=='NONE')df+=g.dietCommon.split('|').map(function(d){return '<span class="fl fd">'+d.trim()+'</span>';}).join('');
+    if(g.dietOther&&g.dietOther.trim()&&g.dietOther.toLowerCase()!=='none')df+='<span class="fl fn">'+g.dietOther.substring(0,40)+'</span>';
+    if(!df)df='<span class="fl fo">None</span>';
+    var gear='';
+    if(/renting|rental|need/i.test(g.sleepingBag||''))gear+='<span class="fl fg">SB+Pad</span>';
+    else if(/own|bringing/i.test(g.sleepingBag||''))gear+='<span class="fl fo">Own SB</span>';
+    if(/provided|oo tent/i.test(g.tent||''))gear+='<span class="fl fg">OO Tent</span>';
+    else if(/own/i.test(g.tent||''))gear+='<span class="fl fo">Own Tent</span>';
+    var med=g.medical&&g.medical.toLowerCase()!=='no'?g.medical:'&mdash;';
+    return '<tr><td style="font-size:14px;font-weight:700">'+g.name+'</td>'
+      +'<td>'+(g.height||'&mdash;')+' / '+(g.weight?g.weight+' lbs':'&mdash;')+'</td>'
+      +'<td>'+(g.age||'&mdash;')+'</td>'
+      +'<td>'+df+'</td>'
+      +'<td style="font-size:11px">'+med+'</td>'
+      +'<td style="font-size:12px;white-space:nowrap">'+(g.phone||'&mdash;')+'</td>'
+      +'<td style="font-size:11px">'+(gear||'&mdash;')+'</td></tr>';
+  }).join(''):'<tr><td colspan="7" style="color:var(--muted);font-style:italic;padding:16px">No guest data — import roster PDF to populate this section</td></tr>';
+
+  var roster='<div class="sb"><div class="sh">&#x1F465; Guest Roster &mdash; '+n+' Guests</div>'+ah
+    +'<table class="rt"><thead><tr><th>Name</th><th>Ht/Wt</th><th>Age</th><th>Dietary</th><th>Medical</th><th>Phone</th><th>Gear</th></tr></thead>'
+    +'<tbody>'+rrows+'</tbody></table></div>';
+
+  // Menu
+  var usedRecipes=[];
+  var totalMeals=0;
+  var menuHtml='';
+  for(var d=0;d<days;d++){
+    var dayHtml='';
+    MTYPES.forEach(function(mt){
+      var rname=plan[d]?plan[d][mt]:'';if(!rname)return;
+      totalMeals++;
+      var r=S.recipes.find(function(rc){return rc['Recipe Name']===rname;});if(!r)return;
+      if(usedRecipes.indexOf(r)===-1)usedRecipes.push(r);
+      var ings=(r['Ingredients (Per Pax)']||'').split(',').map(function(s){return '<li>'+sc(s.trim(),n)+'</li>';}).join('');
+      var mods=[];
+      if((dfs['Gluten Intolerance']||dfs['Celiac'])&&r['GF?']!=='Yes'&&r['GF Swap?']&&r['GF Swap?']!=='N/A')mods.push('GF: '+r['GF Swap?']);
+      if(dfs['Vegan']&&r['Vegan?']!=='Yes'&&r['Vegan Swap?']&&r['Vegan Swap?']!=='N/A')mods.push('Vegan: '+r['Vegan Swap?']);
+      var spb=r['Shop-Prep Items']&&r['Shop-Prep Items']!=='N/A'?r['Shop-Prep Items'].split(',').map(function(s){return '<span class="fl fg">&#x1F3EA; '+s.trim()+'</span>';}).join(''):'';
+      dayHtml+='<div class="mc"><div class="mch" style="background:'+(CC[mt]||'#f8f8f8')+'">'
+        +'<div class="mcn">'+r['Recipe Name']+'</div><span class="mck">'+mt+'</span></div>'
+        +'<div class="mcb"><div><div style="font-size:9px;text-transform:uppercase;color:var(--muted);margin-bottom:3px">Ingredients &middot; '+n+' guests</div>'
+        +'<ul class="il">'+ings+'</ul>'+(spb?'<div style="margin-top:5px">'+spb+'</div>':'')+'</div>'
+        +'<div>'+(r['Prep Notes']?'<div class="nt">'+r['Prep Notes']+'</div>':'')
+        +mods.map(function(m){return '<div class="md">&#x26A0; '+m+'</div>';}).join('')+'</div></div></div>';
+    });
+    if(dayHtml)menuHtml+='<div style="margin-bottom:16px"><div style="background:var(--forest);color:#fff;padding:8px 14px;border-radius:6px 6px 0 0;font-weight:700;font-size:12px">Day '+(d+1)+' &mdash; '+getDayLabel(trip,d)+'</div>'+dayHtml+'</div>';
+  }
+
+  // Shopping list
+  var slMap={};
+  usedRecipes.forEach(function(r){
+    (r['Ingredients (Per Pax)']||'').split(',').map(function(s){return s.trim();}).forEach(function(ing){
+      if(!ing)return;
+      var mv=null;
+      for(var i=0;i<S.inv.length;i++){var item=S.inv[i];var iname=(item['Item']||'').toLowerCase();if(iname&&(ing.toLowerCase().indexOf(iname)>-1||iname.split(' ').some(function(w){return w.length>3&&ing.toLowerCase().indexOf(w)>-1;}))){mv=item;break;}}
+      var loc=mv?mv['Procurement Location']:'';var src=mv?mv['Typical Sourcing']:'';
+      var bk=loc||'Other';
+      if(!slMap[bk])slMap[bk]=[];
+      if(!slMap[bk].some(function(i){return i.name===ing;}))slMap[bk].push({name:ing,scaled:sc(ing,n),src:src,isGuide:src==='Guide Procured'});
+    });
+    var sp=r['Shop-Prep Items'];
+    if(sp&&sp!=='N/A')sp.split(',').forEach(function(s){var t=s.trim();if(!t)return;var bk='Prepped Food';if(!slMap[bk])slMap[bk]=[];if(!slMap[bk].some(function(i){return i.name===t;}))slMap[bk].push({name:t,scaled:'For '+n+' guests',src:'Shop Prep',isGuide:false});});
+  });
+
+  var locOrder=['Walk-in Fridge','Bulk Foods','Dry Goods','Prepped Food','Other'];
+  var locIcons={'Walk-in Fridge':'&#x1F9CA;','Bulk Foods':'&#x1FAA3;','Dry Goods':'&#x1F4E6;','Prepped Food':'&#x1F373;','Other':'&#x1F6D2;'};
+  var shoppingHtml='';
+  locOrder.concat(Object.keys(slMap).filter(function(k){return locOrder.indexOf(k)===-1;})).forEach(function(loc){
+    var items=slMap[loc];if(!items||!items.length)return;
+    var itemsHtml=items.map(function(it){
+      var parts=it.scaled.match(/^([\d.]+\s*\w*)\s*(.*)/)||['',it.scaled,''];
+      return '<div class="sl-item"><input type="checkbox"><span class="sl-qty">'+(parts[1]||'')+'</span>'
+        +'<span style="flex:1">'+(parts[2]||it.scaled)+'</span>'
+        +(it.isGuide?'<span class="sl-gp">Guide</span>':'<span class="sl-src">'+it.src+'</span>')+'</div>';
+    }).join('');
+    shoppingHtml+='<div class="sl-sec"><div class="sl-hdr"><span>'+(locIcons[loc]||'&#x1F4CC;')+' '+loc+'</span><span style="opacity:.7">'+items.length+' items</span></div><div class="sl-grid">'+itemsHtml+'</div></div>';
+  });
+
+  return '<div style="margin-bottom:32px;border:2px solid var(--forest);border-radius:8px;overflow:hidden">'
+    +'<div class="ph"><div class="pt">'+trip.activityName+'</div>'
+    +'<div class="pm"><span>&#x1F4C5; '+sd+' &ndash; '+ed+'</span><span>&#x1F465; '+n+' guests</span><span>&#x1F4C6; '+days+' days</span><span>&#x1F37D; '+totalMeals+' meals</span><span>Generated '+pd+'</span></div></div>'
+    +'<div style="padding:18px">'+roster
+    +'<div class="sb"><div class="sh">&#x1F37D; Daily Menu</div>'+menuHtml+'</div>'
+    +'<div class="sb"><div class="sh">&#x1F6D2; Shopping List &mdash; '+n+' Guests</div>'
+    +'<div style="font-size:11px;color:var(--muted);margin-bottom:10px"><span class="sl-gp">Guide</span> = guide buys directly &nbsp;|&nbsp; All others = company stock or order</div>'
+    +shoppingHtml+'</div></div></div>';
+}
+</script>
+</body>
+</html>
