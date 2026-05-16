@@ -1002,44 +1002,124 @@ function buildPacket(id,trip,gs,plan){
     if(dayHtml)menuHtml+='<div style="margin-bottom:16px"><div style="background:var(--forest);color:#fff;padding:8px 14px;border-radius:6px 6px 0 0;font-weight:700;font-size:12px">Day '+(d+1)+' &mdash; '+getDayLabel(trip,d)+'</div>'+dayHtml+'</div>';
   }
 
-  // Shopping list
-  var slMap={};
+  // ── GEAR SUMMARY ─────────────────────────────────────────────
+  var sbRental=0, sbOwn=0, tentOO=0, tentOwn=0;
+  gs.forEach(function(g){
+    if(g.sleepingBag==='Rental') sbRental++;
+    else if(g.sleepingBag==='Own') sbOwn++;
+    if(g.tent==='OO Tent') tentOO++;
+    else if(g.tent==='Own Tent') tentOwn++;
+  });
+  // Tent sizes — we don't have size data so show total OO tents needed
+  var gearSummaryHtml='<div class="sb"><div class="sh">&#x1F3D2; Gear Summary</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">'
+    +'<div style="border:1.5px solid var(--stone);border-radius:6px;padding:12px">'
+    +'<div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:6px">&#x1F6CF; Sleeping Bags + Pads</div>'
+    +'<div style="font-size:20px;font-weight:700;color:var(--forest)">'+sbRental+' <span style="font-size:12px;font-weight:400;color:var(--muted)">rentals needed</span></div>'
+    +'<div style="font-size:12px;color:var(--muted);margin-top:2px">'+sbOwn+' guests bringing own</div>'
+    +'</div>'
+    +'<div style="border:1.5px solid var(--stone);border-radius:6px;padding:12px">'
+    +'<div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:6px">&#x26FA; OO Tents Needed</div>'
+    +'<div style="font-size:20px;font-weight:700;color:var(--forest)">'+tentOO+' <span style="font-size:12px;font-weight:400;color:var(--muted)">OO tents</span></div>'
+    +'<div style="font-size:12px;color:var(--muted);margin-top:2px">'+tentOwn+' guests bringing own tent</div>'
+    +'</div>'
+    +'</div>'
+    // Individual gear list
+    +(sbRental>0||tentOO>0?
+      '<div style="font-size:11px;color:var(--muted);margin-top:4px">'
+      +gs.filter(function(g){return g.sleepingBag==='Rental'||g.tent==='OO Tent';}).map(function(g){
+        var items=[];
+        if(g.sleepingBag==='Rental') items.push('SB+Pad Rental');
+        if(g.tent==='OO Tent') items.push('OO Tent');
+        return '<span style="display:inline-block;margin:2px 6px 2px 0"><strong>'+g.name+'</strong>: '+items.join(', ')+'</span>';
+      }).join('')
+      +'</div>':''
+    )
+    +'</div>';
+
+  // ── SHOPPING LIST ─────────────────────────────────────────────
+  // Split into: Shop (company sources) and Guide (guide procures)
+  var shopMap={};   // company-stocked items grouped by location
+  var guideList=[]; // items guide buys directly
+
   usedRecipes.forEach(function(r){
     (r['Ingredients (Per Pax)']||'').split(',').map(function(s){return s.trim();}).forEach(function(ing){
       if(!ing)return;
       var mv=null;
-      for(var i=0;i<S.inv.length;i++){var item=S.inv[i];var iname=(item['Item']||'').toLowerCase();if(iname&&(ing.toLowerCase().indexOf(iname)>-1||iname.split(' ').some(function(w){return w.length>3&&ing.toLowerCase().indexOf(w)>-1;}))){mv=item;break;}}
-      var loc=mv?mv['Procurement Location']:'';var src=mv?mv['Typical Sourcing']:'';
-      var bk=loc||'Other';
-      if(!slMap[bk])slMap[bk]=[];
-      if(!slMap[bk].some(function(i){return i.name===ing;}))slMap[bk].push({name:ing,scaled:sc(ing,n),src:src,isGuide:src==='Guide Procured'});
+      for(var i=0;i<S.inv.length;i++){
+        var item=S.inv[i];
+        var iname=(item['Item']||'').toLowerCase();
+        if(iname&&(ing.toLowerCase().indexOf(iname)>-1||iname.split(' ').some(function(w){return w.length>3&&ing.toLowerCase().indexOf(w)>-1;}))){mv=item;break;}
+      }
+      var loc=mv?mv['Procurement Location']:'';
+      var src=mv?mv['Typical Sourcing']:'';
+      var isGuide=src==='Guide Procured';
+      if(isGuide){
+        if(!guideList.some(function(i){return i.name===ing;}))
+          guideList.push({name:ing,scaled:sc(ing,n),loc:loc});
+      } else {
+        var bk=loc||'Other';
+        if(!shopMap[bk])shopMap[bk]=[];
+        if(!shopMap[bk].some(function(i){return i.name===ing;}))
+          shopMap[bk].push({name:ing,scaled:sc(ing,n),src:src});
+      }
     });
     var sp=r['Shop-Prep Items'];
-    if(sp&&sp!=='N/A')sp.split(',').forEach(function(s){var t=s.trim();if(!t)return;var bk='Prepped Food';if(!slMap[bk])slMap[bk]=[];if(!slMap[bk].some(function(i){return i.name===t;}))slMap[bk].push({name:t,scaled:'For '+n+' guests',src:'Shop Prep',isGuide:false});});
+    if(sp&&sp!=='N/A')sp.split(',').forEach(function(s){
+      var t=s.trim();if(!t)return;
+      var bk='Prepped Food';
+      if(!shopMap[bk])shopMap[bk]=[];
+      if(!shopMap[bk].some(function(i){return i.name===t;}))
+        shopMap[bk].push({name:t,scaled:'For '+n+' guests',src:'Shop Prep'});
+    });
   });
+
+  function slItems(items, showSrc){
+    return items.map(function(it){
+      var parts=it.scaled.match(/^([\d.]+\s*\w*)\s*(.*)/)||['',it.scaled,''];
+      return '<div class="sl-item"><input type="checkbox">'
+        +'<span class="sl-qty">'+(parts[1]||'')+'</span>'
+        +'<span style="flex:1">'+(parts[2]||it.scaled)+'</span>'
+        +(showSrc&&it.src?'<span class="sl-src">'+it.src+'</span>':'')
+        +'</div>';
+    }).join('');
+  }
 
   var locOrder=['Walk-in Fridge','Bulk Foods','Dry Goods','Prepped Food','Other'];
   var locIcons={'Walk-in Fridge':'&#x1F9CA;','Bulk Foods':'&#x1FAA3;','Dry Goods':'&#x1F4E6;','Prepped Food':'&#x1F373;','Other':'&#x1F6D2;'};
-  var shoppingHtml='';
-  locOrder.concat(Object.keys(slMap).filter(function(k){return locOrder.indexOf(k)===-1;})).forEach(function(loc){
-    var items=slMap[loc];if(!items||!items.length)return;
-    var itemsHtml=items.map(function(it){
-      var parts=it.scaled.match(/^([\d.]+\s*\w*)\s*(.*)/)||['',it.scaled,''];
-      return '<div class="sl-item"><input type="checkbox"><span class="sl-qty">'+(parts[1]||'')+'</span>'
-        +'<span style="flex:1">'+(parts[2]||it.scaled)+'</span>'
-        +(it.isGuide?'<span class="sl-gp">Guide</span>':'<span class="sl-src">'+it.src+'</span>')+'</div>';
-    }).join('');
-    shoppingHtml+='<div class="sl-sec"><div class="sl-hdr"><span>'+(locIcons[loc]||'&#x1F4CC;')+' '+loc+'</span><span style="opacity:.7">'+items.length+' items</span></div><div class="sl-grid">'+itemsHtml+'</div></div>';
+
+  // Company shop list
+  var shopHtml='';
+  locOrder.concat(Object.keys(shopMap).filter(function(k){return locOrder.indexOf(k)===-1;})).forEach(function(loc){
+    var items=shopMap[loc];if(!items||!items.length)return;
+    shopHtml+='<div class="sl-sec"><div class="sl-hdr"><span>'+(locIcons[loc]||'&#x1F4CC;')+' '+loc+'</span>'
+      +'<span style="opacity:.7">'+items.length+' items</span></div>'
+      +'<div class="sl-grid">'+slItems(items,true)+'</div></div>';
   });
+
+  // Guide shop list
+  var guideHtml='';
+  if(guideList.length){
+    guideHtml='<div class="sl-sec"><div class="sl-hdr" style="background:#0353a4"><span>&#x1F6D2; Guide Procures Off-Property</span>'
+      +'<span style="opacity:.7">'+guideList.length+' items</span></div>'
+      +'<div class="sl-grid">'+slItems(guideList,false)+'</div></div>';
+  }
+
+  var shoppingSection='<div class="sb"><div class="sh">&#x1F3EA; Company Shopping List</div>'
+    +'<div style="font-size:11px;color:var(--muted);margin-bottom:10px">Items sourced from OO shop, kitchen, or ordered in bulk.</div>'
+    +shopHtml+'</div>'
+    +(guideHtml?'<div class="sb"><div class="sh" style="color:#0353a4">&#x1F6D2; Guide Shopping List — Off Property</div>'
+    +'<div style="font-size:11px;color:var(--muted);margin-bottom:10px">Guide purchases these directly. Reimburse with receipts.</div>'
+    +guideHtml+'</div>':'');
 
   return '<div style="margin-bottom:32px;border:2px solid var(--forest);border-radius:8px;overflow:hidden">'
     +'<div class="ph"><div class="pt">'+trip.activityName+'</div>'
     +'<div class="pm"><span>&#x1F4C5; '+sd+' &ndash; '+ed+'</span><span>&#x1F465; '+n+' guests</span><span>&#x1F4C6; '+days+' days</span><span>&#x1F37D; '+totalMeals+' meals</span><span>Generated '+pd+'</span></div></div>'
     +'<div style="padding:18px">'+roster
+    +gearSummaryHtml
     +'<div class="sb"><div class="sh">&#x1F37D; Daily Menu</div>'+menuHtml+'</div>'
-    +'<div class="sb"><div class="sh">&#x1F6D2; Shopping List &mdash; '+n+' Guests</div>'
-    +'<div style="font-size:11px;color:var(--muted);margin-bottom:10px"><span class="sl-gp">Guide</span> = guide buys directly &nbsp;|&nbsp; All others = company stock or order</div>'
-    +shoppingHtml+'</div></div></div>';
+    +shoppingSection
+    +'</div></div>';
 }
 </script>
 </body>
