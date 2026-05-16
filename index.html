@@ -1160,7 +1160,9 @@ function buildPacket(id,trip,gs,plan){
           if(iw.indexOf(kw)>-1||kw.indexOf(iw)>-1) matches++;
         });
       });
-      if(matches>0 && k.length>bestLen){best=invLookup[k];bestLen=k.length;}
+      // Score: word matches * 10 + length (prefer more specific matches)
+      var score = matches * 10 + k.length;
+      if(matches>0 && score>bestLen){best=invLookup[k];bestLen=score;}
     });
     return best;
   }
