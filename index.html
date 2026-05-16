@@ -308,13 +308,28 @@ function parseFlybookRoster(text){
   var guests = [];
   function normName(s){ return (s||'').toLowerCase().replace(/[^a-z]/g,''); }
 
+  // Extract proper names from reservation group headers: "First Last - CODE - N Guest(s)"
+  var properNameMap = {}; // normName -> proper spaced name
+  var groupRe = /^([A-Z][a-z]+(?: [A-Za-z]+)+) - [A-Z0-9]+ - \d+ Guest/gm;
+  var gm;
+  while ((gm=groupRe.exec(text))!==null) {
+    properNameMap[normName(gm[1].trim())] = gm[1].trim();
+    // also index last name
+    var parts=gm[1].trim().split(' ');
+    properNameMap[normName(parts[parts.length-1])] = gm[1].trim();
+  }
+
   // Extract client info: "Name - Email: x - Phone: x - Age: x"
   var clientRe = /([A-Za-z][a-zA-Z ]*?)\s*-\s*Email:\s*(\S+)\s*-\s*Phone:\s*(\S+)\s*-\s*Age:\s*(\d+)/g;
   var clientList=[], clientMap={}, cm;
   while ((cm=clientRe.exec(text))!==null) {
-    var c={name:cm[1].trim(),email:cm[2].trim(),phone:cm[3]==='N/A'?'':cm[3],age:cm[4]};
+    var rawName=cm[1].trim();
+    // Try to find proper spaced version
+    var properName=properNameMap[normName(rawName)]||rawName;
+    var c={name:properName,email:cm[2].trim(),phone:cm[3]==='N/A'?'':cm[3],age:cm[4]};
     clientList.push(c);
     clientMap[normName(c.name)]=c;
+    clientMap[normName(rawName)]=c; // also index by raw name
     clientMap['em:'+c.email.toLowerCase()]=c;
   }
 
