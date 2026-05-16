@@ -426,10 +426,14 @@ function parseFlybookRoster(text){
       if(!/-[A-Z]/.test(line)&&!/\s-\s[A-Z]/.test(line)) return;
       // Exclude client info lines
       if(/Email:|Phone:|@/.test(line)) return;
+      // Exclude reservation header lines like "IDUCNJ - 2 Guest(s)" or "James T Chapman - JPCWOW - 4 Guest(s)"
+      if(/- \d+ Guest|Guest\(s\)/.test(line)) return;
+      // Exclude lines with reservation codes (all-caps 4-6 char code)
+      if(/- [A-Z]{4,6} -/.test(line)) return;
       // Exclude known Q answer lines (both merged and spaced)
-      if(/^(Age\s+\d|HeightinInches|WeightinPounds|Height in|Weight in|CommonDiet|OtherDiet|Common Diet|Other Diet|Willyou|Will you|TentNeeds|Tent Needs|MedicalCond|Medical Cond|InternalNotes|Internal Notes|TravelComp|Travel Comp|CustomerSource|Customer Source|EmailAddress|Email Address|Signed|Products|Sleeping Kit|Name\s+Email)/.test(line)) return;
+      if(/^(Age\s+\d|HeightinInches|WeightinPounds|Height in|Weight in|CommonDiet|OtherDiet|Common Diet|Other Diet|Willyou|Will you|TentNeeds|Tent Needs|MedicalCond|Medical Cond|InternalNotes|Internal Notes|TravelComp|Travel Comp|CustomerSource|Customer Source|EmailAddress|Email Address|Signed|Products|Sleeping|Name\s+Email|Paddlers?|Staff|Admin)/.test(line)) return;
       // Exclude lines that are just "N-Paddlers" or "N-Something"
-      if(/^\d+-/.test(line)) return;
+      if(/^\d+\s*-/.test(line)) return;
       bstarts.push(i);
     });
 
