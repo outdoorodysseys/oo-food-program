@@ -1175,7 +1175,13 @@ function buildPacket(id,trip,gs,plan){
     // Build set of shop-prep item names for this recipe (skip them in ingredient loop)
     var prepNames = {};
     var sp0 = r['Shop-Prep Items'];
-    if(sp0&&sp0!=='N/A') sp0.split(',').forEach(function(s){prepNames[s.trim().toLowerCase()]=true;});
+    if(sp0&&sp0!=='N/A') sp0.split(',').forEach(function(s){
+      var t=s.trim().toLowerCase();
+      prepNames[t]=true;
+      // Also store without trailing 's' for fuzzy match (Pickled Veg vs Pickled Veggies)
+      prepNames[t.replace(/ies$/,'y').replace(/s$/,'')]=true;
+      prepNames[t.replace(/y$/,'ies')]=true;
+    });
 
     (r['Ingredients (Per Pax)']||'').split(',').map(function(s){return s.trim();}).forEach(function(ing){
       if(!ing) return;
@@ -1192,14 +1198,25 @@ function buildPacket(id,trip,gs,plan){
       if(!cleanName) cleanName = ing2.replace(/^[\d.\s]+/,'').trim() || ing;
 
       // Skip if this is a shop-prep item (will be listed under Prepped Food)
-      if(prepNames[cleanName.toLowerCase()]) return;
+      var cn2 = cleanName.toLowerCase();
+      var isPrep = prepNames[cn2] ||
+        Object.keys(prepNames).some(function(k){
+          return k.length>3 && (cn2.indexOf(k)>-1 || k.indexOf(cn2)>-1);
+        });
+      if(isPrep) return;
 
       var mv = findInv(ing2);
       var loc=mv?mv['Procurement Location']:'';
       var src=mv?mv['Typical Sourcing']:'';
       var isGuide=src==='Guide Procured';
       var scaled = sc(ing2, n);
+      // For items with no inventory match, show scaled qty cleanly
       var pkgQty = mv ? toPkgQty(ing2, scaled, mv) : scaled;
+      // Skip tiny garnish/condiment items that have no pkg match (Basil leaves, etc)
+      if(!mv && !isGuide) {
+        var qty0 = parseFloat(scaled);
+        if(!isNaN(qty0) && qty0 < 1 && !/oz|lb|cup/i.test(scaled)) return; // skip if <1 count with no unit
+      }
 
       if(isGuide){
         if(!guideList.some(function(i){return i.name===cleanName;}))
