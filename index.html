@@ -360,7 +360,7 @@ function parseFlybookRoster(text){
     lines.forEach(function(line,i){
       var isHeader=(/\s-\s[A-Z]/.test(line)||/-[A-Z][a-zA-Z]/.test(line)||/-Guest#\d+/i.test(line));
       var notClient=!/Email|Phone|Waiver|@/.test(line);
-      var notQ=!/^(Age\s|Height|Weight|Common|Other|Will you|Tent|Medical|Internal|Travel|Customer|Email Address)/.test(line);
+      var notQ=!/^(Age\s|Height|Weight|Common|Other|Will you|Willyou|Tent|TentNeeds|Medical|MedicalC|Internal|Travel|Customer|Email Address|EmailAddress)/.test(line);
       if(isHeader&&notClient&&notQ) blockStarts.push(i);
     });
 
@@ -389,6 +389,8 @@ function parseFlybookRoster(text){
           var val=null;
           if(line.indexOf(kd[0])===0) val=line.substring(kd[0].length).trim();
           else if(kd[1]!==kd[0]&&line.indexOf(kd[1])===0) val=line.substring(kd[1].length).trim();
+          // Clean up sleepingBag value that may start with '? '
+          if(kd[2]==='sleepingBag'&&val) val=val.replace(/^\?\s*/,'');
           var bad=['n/a','no','none','nope',''];
           if(val!==null&&bad.indexOf(val.toLowerCase())<0&&!qa[kd[2]]) qa[kd[2]]=val;
         });
@@ -841,10 +843,14 @@ function buildPacket(id,trip,gs,plan){
     if(g.dietOther&&g.dietOther.trim()&&g.dietOther.toLowerCase()!=='none')df+='<span class="fl fn">'+g.dietOther.substring(0,40)+'</span>';
     if(!df)df='<span class="fl fo">None</span>';
     var gear='';
-    if(/renting|rental|need/i.test(g.sleepingBag||''))gear+='<span class="fl fg">SB+Pad</span>';
-    else if(/own|bringing/i.test(g.sleepingBag||''))gear+='<span class="fl fo">Own SB</span>';
-    if(/provided|oo tent/i.test(g.tent||''))gear+='<span class="fl fg">OO Tent</span>';
-    else if(/own/i.test(g.tent||''))gear+='<span class="fl fo">Own Tent</span>';
+    var sb=(g.sleepingBag||'').toLowerCase();
+    var tn=(g.tent||'').toLowerCase();
+    if(/renting|rental/.test(sb))gear+='<span class="fl fg">SB+Pad Rental</span>';
+    else if(/own|bringing|personal/.test(sb))gear+='<span class="fl fo">Own SB+Pad</span>';
+    else if(sb&&sb.length>2)gear+='<span class="fl fn">SB: ?</span>';
+    if(/provided|outdoor odysseys/.test(tn))gear+='<span class="fl fg">OO Tent</span>';
+    else if(/own|personal|bring/.test(tn))gear+='<span class="fl fo">Own Tent</span>';
+    else if(tn&&tn.length>2)gear+='<span class="fl fn">Tent: ?</span>';
     var med=g.medical&&g.medical.toLowerCase()!=='no'?g.medical:'&mdash;';
     return '<tr><td style="font-size:14px;font-weight:700">'+g.name+'</td>'
       +'<td>'+(g.height||'&mdash;')+' / '+(g.weight?g.weight+' lbs':'&mdash;')+'</td>'
