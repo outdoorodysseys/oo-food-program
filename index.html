@@ -1066,12 +1066,17 @@ function buildPacket(id,trip,gs,plan){
         // Handle range: "5-8 Crackers" -> "5 Crackers"
         var s2=s.replace(/^([\d.]+)\s*-\s*\d+\s+/,'$1 ');
         var scaled=sc(s2,n);
-        // Try package conversion using inventory
-        var mv=findInv(s2);
-        if(mv){
-          var pkg=toPkgQty(s2,scaled,mv);
-          var cname=s2.replace(/^[\d.\/]+\s*(oz|lbs?|cups?|tbsp|tsp|cans?|bunches?|cloves?|bags?|scoops?|slices?|loaves?|pints?|quarts?|dozen|each|lb)\s*/i,'').replace(/^[\d.]+\s+/,'').trim();
-          if(cname) return '<li>'+pkg+' '+cname+'</li>';
+        // Only try package conversion if ingredient has a leading number
+        if(/^[\d.]/.test(s2)){
+          var mv=findInv(s2);
+          if(mv){
+            var pkg=toPkgQty(s2,scaled,mv);
+            // Clean item name: strip leading qty+unit
+            var cname=s2.replace(/^[\d.\/]+\s*(oz|lbs?|cups?|tbsp|tsp|cans?|bunches?|cloves?|bags?|scoops?|slices?|loaves?|pints?|quarts?|dozen|each|lb)\s*/i,'').replace(/^[\d.]+\s+/,'').trim();
+            // Only use if we have a clean name and conversion actually changed something
+            if(cname && pkg!==scaled) return '<li>'+pkg+' '+cname+'</li>';
+            if(cname && pkg===scaled) return '<li>'+scaled+'</li>';
+          }
         }
         return '<li>'+scaled+'</li>';
       }).join('');
