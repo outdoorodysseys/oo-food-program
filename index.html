@@ -87,22 +87,50 @@ body{font-family:Arial,sans-serif;background:var(--cream);color:var(--ink)}
   .main{display:block!important}
   .content{overflow:visible!important}
   .no-print{display:none!important}
-  /* Roster + gear: keep together, force new page after */
-  .print-pg1{break-inside:avoid}
+
+  /* Page structure */
   .print-pg1-end{break-after:page}
-  /* Menu section: start on new page */
   .print-menu{break-before:page}
-  /* Individual meal cards: keep together, never split mid-card */
-  .mc{break-inside:avoid;break-before:auto}
-  /* Shopping lists: always start on new page */
   .print-shopping{break-before:page}
-  /* Trip header: never orphaned */
   .ph{break-inside:avoid;break-after:avoid}
-  /* Day headers: stay with their first meal */
   .day-hdr{break-after:avoid;break-inside:avoid}
-  /* General */
-  .db{break-inside:avoid}
+  .db,.mc{break-inside:avoid}
   *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+
+  /* ── Roster: compact for print ── */
+  .rt{font-size:10px;width:100%}
+  .rt th{font-size:8px;padding:4px 6px}
+  .rt td{padding:4px 6px;font-size:10px}
+  .rt td div{font-size:10px}
+  .rt td div:first-child{font-weight:700}
+  /* Group header rows */
+  .rt td[colspan]{font-size:9px;padding:3px 8px}
+  /* Dietary/SB/tent badges */
+  .fl{font-size:8px;padding:1px 3px}
+
+  /* ── Gear summary: compact ── */
+  .sb{padding:6px 0}
+  .sh{font-size:11px;margin-bottom:5px;padding-bottom:3px}
+  /* Gear boxes: side by side, smaller */
+  .sb div[style*="grid-template-columns:1fr 1fr"]{gap:6px;margin-bottom:6px}
+  .sb div[style*="grid-template-columns:1fr 1fr"] > div{padding:6px 8px}
+  .sb div[style*="font-size:22px"]{font-size:16px!important}
+  .sb div[style*="font-size:20px"]{font-size:16px!important}
+  .sb div[style*="font-size:12px;color:var(--muted);margin-top"]{font-size:9px!important}
+  .sb div[style*="font-size:11px;color:var(--muted)"]{font-size:9px!important}
+  .al{font-size:9px;padding:5px 8px;margin-bottom:6px}
+
+  /* ── Shopping list: compact, 3-column ── */
+  .print-shopping .sl-grid{grid-template-columns:1fr 1fr 1fr!important;gap:2px}
+  .print-shopping .sl-item{padding:3px 5px;font-size:9px}
+  .print-shopping .sl-qty{font-size:9px;min-width:35px}
+  .print-shopping .sl-hdr{font-size:8px;padding:3px 8px}
+  .print-shopping .sl-sec{margin-bottom:8px}
+  .print-shopping .sh{font-size:11px}
+  .print-shopping .sb{padding:4px 0}
+  .print-shopping div[style*="font-size:11px;color:var(--muted);margin-bottom"]{font-size:8px;margin-bottom:4px!important}
+  /* Receipt instruction */
+  .print-shopping div[style*="background:#eff6ff"]{padding:4px 6px;font-size:8px}
 }
 </style>
 </head>
