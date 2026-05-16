@@ -1159,17 +1159,35 @@ function buildPacket(id,trip,gs,plan){
 
   usedRecipes.forEach(function(r){
     var recipeBase = parseInt(r['Base Servings']||BASE_SERVINGS) || BASE_SERVINGS;
+    // Build set of shop-prep item names for this recipe (skip them in ingredient loop)
+    var prepNames = {};
+    var sp0 = r['Shop-Prep Items'];
+    if(sp0&&sp0!=='N/A') sp0.split(',').forEach(function(s){prepNames[s.trim().toLowerCase()]=true;});
+
     (r['Ingredients (Per Pax)']||'').split(',').map(function(s){return s.trim();}).forEach(function(ing){
-      if(!ing)return;
-      var mv = findInv(ing);
+      if(!ing) return;
+
+      // Handle range notation: "5-8 Crackers" -> take first number, name = "Crackers"
+      // Also "3-4 Basil Leaves" -> qty=3, name="Basil Leaves"
+      var ing2 = ing.replace(/^([\d.]+)\s*-\s*\d+\s+/, '$1 '); // "5-8 Crackers" -> "5 Crackers"
+
+      // Strip leading quantity+unit to get clean item name
+      var cleanName = ing2
+        .replace(/^[\d.\/]+\s*(oz|lbs?|cups?|tbsp|tsp|cans?|bunch(?:es)?|cloves?|bags?|scoops?|slices?|loaves?|pints?|quarts?|dozen|each)\s*/i,'')
+        .replace(/^[\d.]+\s+/,'')  // strip bare leading numbers like "0.25 Tomato" -> "Tomato"
+        .trim();
+      if(!cleanName) cleanName = ing2.replace(/^[\d.\s]+/,'').trim() || ing;
+
+      // Skip if this is a shop-prep item (will be listed under Prepped Food)
+      if(prepNames[cleanName.toLowerCase()]) return;
+
+      var mv = findInv(ing2);
       var loc=mv?mv['Procurement Location']:'';
       var src=mv?mv['Typical Sourcing']:'';
       var isGuide=src==='Guide Procured';
-      var scaled = sc(ing, n);
-      var pkgQty = mv ? toPkgQty(ing, scaled, mv) : scaled;
-      // Extract clean item name (strip leading quantity)
-      var cleanName = ing.replace(/^[\d.\/]+\s*(oz|lbs?|cups?|tbsp|tsp|cans?|bunch(?:es)?|cloves?|bags?|scoops?|slices?|loaves?|pints?|quarts?|dozen|each|lbs?)\s*/i,'').trim();
-      if(!cleanName) cleanName = ing;
+      var scaled = sc(ing2, n);
+      var pkgQty = mv ? toPkgQty(ing2, scaled, mv) : scaled;
+
       if(isGuide){
         if(!guideList.some(function(i){return i.name===cleanName;}))
           guideList.push({name:cleanName, scaled:scaled, pkgQty:pkgQty, loc:loc});
