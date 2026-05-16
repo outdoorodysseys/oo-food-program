@@ -204,6 +204,22 @@ function setstep(n){for(var i=1;i<=3;i++){var el=document.getElementById('s'+i);
 function getDays(trip){var ms=new Date(trip.endTime||trip.end)-new Date(trip.startTime||trip.start);return Math.max(1,Math.ceil(ms/(1000*60*60*24)));}
 function getDayLabel(trip,i){var d=new Date(new Date(trip.startTime||trip.start).getTime()+i*86400000);return d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});}
 function fmtDate(ts){return new Date(ts).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});}
+function formatPhone(p) {
+  if (!p) return '';
+  p = p.toString().trim();
+  if (p === 'N/A') return '';
+  var digits = p.replace(/[^\d]/g,'');
+  if (p.startsWith('+1') && digits.length === 11)
+    return '+1 (' + digits.substr(1,3) + ') ' + digits.substr(4,3) + '-' + digits.substr(7);
+  if (p.startsWith('+') && digits.length > 11)
+    return p; // keep international as-is
+  if (digits.length === 10)
+    return '(' + digits.substr(0,3) + ') ' + digits.substr(3,3) + '-' + digits.substr(6);
+  if (digits.length === 11 && digits[0] === '1')
+    return '+1 (' + digits.substr(1,3) + ') ' + digits.substr(4,3) + '-' + digits.substr(7);
+  return p;
+}
+
 function sc(ing,n){var m=ing.match(/^([\d.]+)\s*(oz|lb|lbs|cup|cups|tbsp|tsp|can|cans|bunch|clove|cloves|bag|scoop|slice|slices)?\s*(.*)/i);if(!m)return ing;var q=parseFloat(m[1]),u=m[2]||'',it=m[3];var sv=Math.round(q*n*10)/10;return(sv===Math.floor(sv)?Math.floor(sv):sv)+(u?' '+u:'')+' '+it;}
 function isDone(id){return S.packetLog.some(function(e){return String(e.activityId)===String(id);});}
 
@@ -355,26 +371,7 @@ function parseFlybookRoster(text){
   var BAD={'n/a':1,'no':1,'none':1,'nope':1,'':1,'n':1,'na':1,'n/':1};
   function isBad(v){return !!BAD[(v||'').toLowerCase().trim()];}
 
-  function formatPhone(p) {
-    if (!p) return '';
-    p = p.toString().trim();
-    // International numbers (start with + or more than 10 digits)
-    if (p.startsWith('+')) {
-      // Keep + and format with spaces: +1 415 555 1234 or +44 7591 684844
-      var digits = p.replace(/[^\d]/g,'');
-      if (p.startsWith('+1') && digits.length === 11) {
-        // US/Canada: +1 (XXX) XXX-XXXX
-        return '+1 (' + digits.substr(1,3) + ') ' + digits.substr(4,3) + '-' + digits.substr(7);
-      }
-      // Other international: +CC XXXX XXXXXX
-      return p; // keep as-is for non-US international
-    }
-    // Domestic US: 10 digits
-    var d = p.replace(/[^\d]/g,'');
-    if (d.length === 10) return '(' + d.substr(0,3) + ') ' + d.substr(3,3) + '-' + d.substr(6);
-    if (d.length === 11 && d[0] === '1') return '+1 (' + d.substr(1,3) + ') ' + d.substr(4,3) + '-' + d.substr(7);
-    return p; // return original if can't parse
-  }
+
   function clean(v){return (v||'').trim().replace(/^\?\s*/,'').trim();}
   function norm(s){return (s||'').toLowerCase().replace(/[^a-z0-9]/g,'');}
   function spaceCaps(s){return (s||'').replace(/([a-z])([A-Z])/g,'$1 $2').replace(/([A-Z]+)([A-Z][a-z])/g,'$1 $2');}
