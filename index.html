@@ -1046,6 +1046,48 @@ function buildPacket(id,trip,gs,plan){
     +'<th>Name / Phone</th><th>Ht / Wt</th><th>Age</th><th>Dietary</th><th>Medical</th><th>Sleeping</th><th>Tent</th>'
     +'</tr></thead><tbody>'+rrows+'</tbody></table></div>';
 
+  // Build inventory lookup for menu + shopping list
+  var invLookup = {};
+  S.inv.forEach(function(item){ invLookup[(item['Item']||'').toLowerCase()] = item; });
+
+  function findInv(ing) {
+    var ilow = ing.toLowerCase()
+      .replace(/^[\d.]+\s*-\s*\d+\s+/, '')
+      .replace(/^[\d.]+\s*(oz|lbs?|cups?|tbsp|tsp|cans?|bunches?|cloves?|bags?|scoops?|slices?|loaves?|pints?|quarts?|dozen|each|lb)\s*/i,'')
+      .replace(/^[\d.]+\s+/,'').trim();
+    var best=null, bestLen=0;
+    Object.keys(invLookup).forEach(function(k){
+      if(k.length<3) return;
+      var kwords=k.split(/[\s\/\-]+/).filter(function(w){return w.length>2;});
+      var iwords=ilow.split(/[\s\/\-]+/).filter(function(w){return w.length>2;});
+      var matches=0;
+      kwords.forEach(function(kw){iwords.forEach(function(iw){if(iw.indexOf(kw)>-1||kw.indexOf(iw)>-1)matches++;});});
+      var score=matches*10+k.length;
+      if(matches>0&&score>bestLen){best=invLookup[k];bestLen=score;}
+    });
+    return best;
+  }
+
+  function toPkgQty(ing, scaledQty, invItem) {
+    if(!invItem) return scaledQty;
+    var pkgSize=parseFloat(invItem['Package Size']||'1')||1;
+    var pkgUnit=(invItem['Package Unit']||invItem['Unit']||'').toString();
+    if(pkgSize<=0) return scaledQty;
+    var m=scaledQty.match(/^([\d.]+)\s*([a-zA-Z]*)/);
+    if(!m) return scaledQty;
+    var qty=parseFloat(m[1]);
+    if(isNaN(qty)||qty===0) return scaledQty;
+    var pkgs=qty/pkgSize;
+    function roundPkg(n){
+      if(n<=0.15)return '⅛';if(n<=0.3)return '¼';if(n<=0.6)return '½';
+      if(n<=0.85)return '¾';if(n<=1.15)return '1';if(n<=1.6)return '1½';
+      if(n<=2.15)return '2';if(n<=2.6)return '2½';if(n<=3.15)return '3';
+      return String(Math.ceil(n));
+    }
+    var displayUnit=pkgUnit.indexOf('/')>-1?pkgUnit.split('/')[1]:pkgUnit;
+    return roundPkg(pkgs)+' '+displayUnit;
+  }
+
   // Menu
   var usedRecipes=[];
   var totalMeals=0;
@@ -1149,208 +1191,4 @@ function buildPacket(id,trip,gs,plan){
   var guideList=[]; // items guide buys directly
 
   // Build inventory lookup map
-  var invLookup = {};
-  S.inv.forEach(function(item){
-    invLookup[(item['Item']||'').toLowerCase()] = item;
-  });
-  function findInv(ing) {
-    // Strip leading qty+unit+ranges to get clean ingredient name
-    var ilow = ing.toLowerCase()
-      .replace(/^[\d.]+\s*-\s*\d+\s+/, '')
-      .replace(/^[\d.]+\s*(oz|lbs?|cups?|tbsp|tsp|cans?|bunches?|cloves?|bags?|scoops?|slices?|loaves?|pints?|quarts?|dozen|each|lb)\s*/i,'')
-      .replace(/^[\d.]+\s+/,'')
-      .trim();
-    var best = null, bestLen = 0;
-    Object.keys(invLookup).forEach(function(k) {
-      if (k.length < 3) return;
-      var kwords = k.split(/[\s\/\-]+/).filter(function(w){return w.length>2;});
-      var iwords = ilow.split(/[\s\/\-]+/).filter(function(w){return w.length>2;});
-      var matches = 0;
-      kwords.forEach(function(kw){
-        iwords.forEach(function(iw){
-          if(iw.indexOf(kw)>-1||kw.indexOf(iw)>-1) matches++;
-        });
-      });
-      // Score: word matches * 10 + length (prefer more specific matches)
-      var score = matches * 10 + k.length;
-      if(matches>0 && score>bestLen){best=invLookup[k];bestLen=score;}
-    });
-    return best;
-  }
 
-  // Base servings from recipe (for batch calculations)
-  var BASE_SERVINGS = 4;
-
-  usedRecipes.forEach(function(r){
-    var recipeBase = parseInt(r['Base Servings']||BASE_SERVINGS) || BASE_SERVINGS;
-    // Build set of shop-prep item names for this recipe (skip them in ingredient loop)
-    var prepNames = {};
-    var sp0 = r['Shop-Prep Items'];
-    if(sp0&&sp0!=='N/A') sp0.split(',').forEach(function(s){
-      var t=s.trim().toLowerCase();
-      prepNames[t]=true;
-      // Also store without trailing 's' for fuzzy match (Pickled Veg vs Pickled Veggies)
-      prepNames[t.replace(/ies$/,'y').replace(/s$/,'')]=true;
-      prepNames[t.replace(/y$/,'ies')]=true;
-    });
-
-    (r['Ingredients (Per Pax)']||'').split(',').map(function(s){return s.trim();}).forEach(function(ing){
-      if(!ing) return;
-
-      // Handle range notation: "5-8 Crackers" -> take first number, name = "Crackers"
-      // Also "3-4 Basil Leaves" -> qty=3, name="Basil Leaves"
-      var ing2 = ing.replace(/^([\d.]+)\s*-\s*\d+\s+/, '$1 '); // "5-8 Crackers" -> "5 Crackers"
-
-      // Strip leading quantity+unit to get clean item name
-      var cleanName = ing2
-        .replace(/^[\d.\/]+\s*(oz|lbs?|cups?|tbsp|tsp|cans?|bunch(?:es)?|cloves?|bags?|scoops?|slices?|loaves?|pints?|quarts?|dozen|each)\s*/i,'')
-        .replace(/^[\d.]+\s+/,'')  // strip bare leading numbers like "0.25 Tomato" -> "Tomato"
-        .trim();
-      if(!cleanName) cleanName = ing2.replace(/^[\d.\s]+/,'').trim() || ing;
-
-      // Skip if this is a shop-prep item (will be listed under Prepped Food)
-      var cn2 = cleanName.toLowerCase();
-      var isPrep = prepNames[cn2] ||
-        Object.keys(prepNames).some(function(k){
-          return k.length>3 && (cn2.indexOf(k)>-1 || k.indexOf(cn2)>-1);
-        });
-      if(isPrep) return;
-
-      var mv = findInv(ing2);
-      var loc=mv?mv['Procurement Location']:'';
-      var src=mv?mv['Typical Sourcing']:'';
-      var isGuide=src==='Guide Procured';
-      var scaled = sc(ing2, n);
-      // For items with no inventory match, show scaled qty cleanly
-      var pkgQty = mv ? toPkgQty(ing2, scaled, mv) : scaled;
-      // Skip garnish/count items with no weight/volume unit (e.g. "30 Basil Leaves", "10 Crackers")
-      var scaledHasUnit = /oz|lb|cup|kg|ml|tsp|tbsp/i.test(scaled);
-      var qty0 = parseFloat(scaled);
-      if(!isNaN(qty0) && !scaledHasUnit && !mv) return;
-      // Also skip if match is clearly wrong (matched a prep-category item for a garnish)
-      if(!isNaN(qty0) && !scaledHasUnit && mv && (mv['Procurement Location']||'').toLowerCase().indexOf('prep') > -1) return;
-
-      if(isGuide){
-        if(!guideList.some(function(i){return i.name===cleanName;}))
-          guideList.push({name:cleanName, scaled:scaled, pkgQty:pkgQty, loc:loc});
-      } else {
-        var bk=loc||'Other';
-        if(!shopMap[bk])shopMap[bk]=[];
-        if(!shopMap[bk].some(function(i){return i.name===cleanName;}))
-          shopMap[bk].push({name:cleanName, scaled:scaled, pkgQty:pkgQty, src:src});
-      }
-    });
-    // Shop-prep items: show batches needed
-    var sp=r['Shop-Prep Items'];
-    if(sp&&sp!=='N/A')sp.split(',').forEach(function(s){
-      var t=s.trim();if(!t)return;
-      var bk='Prepped Food';
-      if(!shopMap[bk])shopMap[bk]=[];
-      if(!shopMap[bk].some(function(i){return i.name===t;})){
-        // Calculate batches: ceil(guests / base_servings)
-        var batches = Math.ceil(n / recipeBase);
-        var batchLabel = batches===1 ? '1 batch' : batches+' batches';
-        shopMap[bk].push({name:t, scaled:batchLabel, pkgQty:batchLabel, src:'Shop Prep'});
-      }
-    });
-  });
-
-  // Convert raw ingredient quantity to package quantity
-  function toPkgQty(ing, scaledQty, invItem) {
-    if (!invItem) return scaledQty;
-    var pkgSize = parseFloat(invItem['Package Size']||'1') || 1;
-    var pkgUnit = (invItem['Package Unit']||invItem['Unit']||'').toString();
-    if (pkgSize <= 0) return scaledQty;
-
-    // Parse: extract leading number from scaledQty
-    // e.g. "30 slices Bread" -> qty=30, recipeUnit="slices"
-    // e.g. "2.5 oz Butter" -> qty=2.5, recipeUnit="oz"
-    // e.g. "10 Eggs" -> qty=10, recipeUnit="" (countable)
-    var m = scaledQty.match(/^([\d.]+)\s*([a-zA-Z]*)/);
-    if (!m) return scaledQty;
-    var qty = parseFloat(m[1]);
-    if (isNaN(qty) || qty === 0) return scaledQty;
-
-    // The pkgUnit format is "recipeUnit/purchaseUnit" e.g. "slices/loaf", "oz/lb", "eggs/dozen"
-    // pkgSize = how many recipeUnits per purchaseUnit
-    var pkgs = qty / pkgSize;
-
-    // Round to practical purchase amounts
-    function roundPkg(n) {
-      if (n <= 0.15) return '⅛';
-      if (n <= 0.3)  return '¼';
-      if (n <= 0.6)  return '½';
-      if (n <= 0.85) return '¾';
-      if (n <= 1.15) return '1';
-      if (n <= 1.6)  return '1½';
-      if (n <= 2.15) return '2';
-      if (n <= 2.6)  return '2½';
-      if (n <= 3.15) return '3';
-      return String(Math.ceil(n));
-    }
-
-    // Display unit = purchase unit (after the / in pkgUnit, or pkgUnit itself)
-    var displayUnit = pkgUnit.indexOf('/') > -1 ? pkgUnit.split('/')[1] : pkgUnit;
-
-    return roundPkg(pkgs) + ' ' + displayUnit;
-  }
-
-  function slItems(items, showSrc){
-    return items.map(function(it){
-      var qty = it.pkgQty || it.scaled || '';
-      var name = it.name || '';
-      // If qty contains the item name already (old format "For N guests"), just show name with dash qty
-      var qtyDisplay = '';
-      var nameDisplay = name;
-      if (qty && !qty.toLowerCase().startsWith('for ')) {
-        // Extract leading number/fraction from qty
-        var m = qty.match(/^([\d½¼¾]+\s*[a-zA-Z\/]*)/);
-        qtyDisplay = m ? m[1].trim() : qty;
-      }
-      return '<div class="sl-item"><input type="checkbox">'
-        +'<span class="sl-qty">'+(qtyDisplay||'&mdash;')+'</span>'
-        +'<span style="flex:1">'+nameDisplay+'</span>'
-        +(showSrc&&it.src?'<span class="sl-src">'+it.src+'</span>':'')
-        +'</div>';
-    }).join('');
-  }
-
-  var locOrder=['Walk-in Fridge','Bulk Foods','Dry Goods','Prepped Food','Other'];
-  var locIcons={'Walk-in Fridge':'&#x1F9CA;','Bulk Foods':'&#x1FAA3;','Dry Goods':'&#x1F4E6;','Prepped Food':'&#x1F373;','Other':'&#x1F6D2;'};
-
-  // Company shop list
-  var shopHtml='';
-  locOrder.concat(Object.keys(shopMap).filter(function(k){return locOrder.indexOf(k)===-1;})).forEach(function(loc){
-    var items=shopMap[loc];if(!items||!items.length)return;
-    shopHtml+='<div class="sl-sec"><div class="sl-hdr"><span>'+(locIcons[loc]||'&#x1F4CC;')+' '+loc+'</span>'
-      +'<span style="opacity:.7">'+items.length+' items</span></div>'
-      +'<div class="sl-grid">'+slItems(items,true)+'</div></div>';
-  });
-
-  // Guide shop list
-  var guideHtml='';
-  if(guideList.length){
-    guideHtml='<div class="sl-sec"><div class="sl-hdr" style="background:#0353a4"><span>&#x1F6D2; Guide Procures Off-Property</span>'
-      +'<span style="opacity:.7">'+guideList.length+' items</span></div>'
-      +'<div class="sl-grid">'+slItems(guideList,false)+'</div></div>';
-  }
-
-  var shoppingSection='<div class="sb"><div class="sh">&#x1F3EA; Company Shopping List</div>'
-    +'<div style="font-size:11px;color:var(--muted);margin-bottom:10px">Items sourced from OO shop, kitchen, or ordered in bulk.</div>'
-    +shopHtml+'</div>'
-    +(guideHtml?'<div class="sb"><div class="sh" style="color:#0353a4">&#x1F6D2; Guide Shopping List — Off Property</div>'
-    +'<div style="font-size:11px;color:var(--muted);margin-bottom:10px">&#x1F4B3; <strong>Use company card.</strong> Return receipts labeled with your name, trip name & date.</div>'
-    +guideHtml+'</div>':'');
-
-  return '<div style="margin-bottom:32px;border:2px solid var(--forest);border-radius:8px;overflow:hidden">'
-    +'<div class="ph"><div class="pt">'+trip.activityName+'</div>'
-    +'<div class="pm"><span>&#x1F4C5; '+sd+' &ndash; '+ed+'</span><span>&#x1F465; '+n+' guests</span><span>&#x1F4C6; '+days+' days</span><span>&#x1F37D; '+totalMeals+' meals</span><span>Generated '+pd+'</span></div></div>'
-    +'<div style="padding:18px">'+roster
-    +gearSummaryHtml
-    +'<div class="sb"><div class="sh">&#x1F37D; Daily Menu</div>'+menuHtml+'</div>'
-    +shoppingSection
-    +'</div></div>';
-}
-</script>
-</body>
-</html>
