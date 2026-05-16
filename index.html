@@ -192,8 +192,8 @@ function hardReset() {
 
 var APPS_SCRIPT = 'https://script.google.com/macros/s/AKfycbwz6PEkFm4GVDhkmlrqYpzkHQJ2gbrL9SCFWknzXHjVvIsITMaCWeyUi11zDcAB2Nrq/exec';
 var FLYBOOK_BASE = 'https://go.theflybook.com';
-var MTYPES = ['Breakfast','Appetizer','Lunch','Dinner','Dessert','Snacks'];
-var CC = {Breakfast:'#fffbeb',Lunch:'#f0fdf4',Appetizer:'#fef2f2',Dinner:'#eff6ff',Dessert:'#fdf4ff',Snacks:'#f5f5f5'};
+var MTYPES = ['Breakfast','Lunch','Appetizer','Dinner','Dessert'];
+var CC = {Breakfast:'#fffbeb',Lunch:'#f0fdf4',Appetizer:'#fef2f2',Dinner:'#eff6ff',Dessert:'#fdf4ff'};
 
 var S = {allTrips:[],selectedIds:[],tripData:{},recipes:[],inv:[],plans:{},packetLog:[]};
 
@@ -919,7 +919,7 @@ function autoAssignMeals(id) {
   }
 
   // Step 3: Assign remaining meal types
-  var otherTypes = ['Breakfast','Appetizer','Lunch','Dessert','Snacks'];
+  var otherTypes = ['Breakfast','Lunch','Appetizer','Dessert'];
   otherTypes.forEach(function(mt) {
     var eligible = S.recipes
       .filter(function(r){ return r['Category']===mt; })
@@ -942,7 +942,7 @@ function autoAssignMeals(id) {
         plan[d][mt] = queue[qIdx]['Recipe Name'];
         used[queue[qIdx]['Recipe Name']] = true;
         qIdx++;
-      } else if (mt === 'Lunch' || mt === 'Breakfast' || mt === 'Snacks') {
+      } else if (mt === 'Lunch' || mt === 'Breakfast') {
         // Allow repeat for high-frequency meal types if we run out
         qIdx = 0;
         while (qIdx < queue.length && plan[d][mt]) qIdx++;
