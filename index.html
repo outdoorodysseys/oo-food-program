@@ -87,7 +87,22 @@ body{font-family:Arial,sans-serif;background:var(--cream);color:var(--ink)}
   .main{display:block!important}
   .content{overflow:visible!important}
   .no-print{display:none!important}
-  .db,.mc{break-inside:avoid}
+  /* Roster + gear: keep together, force new page after */
+  .print-pg1{break-inside:avoid}
+  .print-pg1-end{break-after:page}
+  /* Menu section: start on new page */
+  .print-menu{break-before:page}
+  /* Individual meal cards: keep together, never split mid-card */
+  .mc{break-inside:avoid;break-before:auto}
+  /* Shopping lists: always start on new page */
+  .print-shopping{break-before:page}
+  /* Trip header: never orphaned */
+  .ph{break-inside:avoid;break-after:avoid}
+  /* Day headers: stay with their first meal */
+  .day-hdr{break-after:avoid;break-inside:avoid}
+  /* General */
+  .db{break-inside:avoid}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
 </style>
 </head>
@@ -1091,7 +1106,7 @@ function buildPacket(id,trip,gs,plan){
         +'<div>'+(r['Prep Notes']?'<div class="nt">'+r['Prep Notes']+'</div>':'')
         +mods.map(function(m){return '<div class="md">&#x26A0; '+m+'</div>';}).join('')+'</div></div></div>';
     });
-    if(dayHtml)menuHtml+='<div style="margin-bottom:16px"><div style="background:var(--forest);color:#fff;padding:8px 14px;border-radius:6px 6px 0 0;font-weight:700;font-size:12px">Day '+(d+1)+' &mdash; '+getDayLabel(trip,d)+'</div>'+dayHtml+'</div>';
+    if(dayHtml)menuHtml+='<div style="margin-bottom:16px"><div class="day-hdr" style="background:var(--forest);color:#fff;padding:8px 14px;border-radius:6px 6px 0 0;font-weight:700;font-size:12px">Day '+(d+1)+' &mdash; '+getDayLabel(trip,d)+'</div>'+dayHtml+'</div>';
   }
 
   // ── GEAR SUMMARY ─────────────────────────────────────────────
@@ -1348,12 +1363,12 @@ function buildPacket(id,trip,gs,plan){
     +guideHtml+'</div>':'');
 
   return '<div style="margin-bottom:32px;border:2px solid var(--forest);border-radius:8px;overflow:hidden">'
-    +'<div class="ph"><div class="pt">'+trip.activityName+'</div>'
+    +'<div class="ph print-pg1"><div class="pt">'+trip.activityName+'</div>'
     +'<div class="pm"><span>&#x1F4C5; '+sd+' &ndash; '+ed+'</span><span>&#x1F465; '+n+' guests</span><span>&#x1F4C6; '+days+' days</span><span>&#x1F37D; '+totalMeals+' meals</span><span>Generated '+pd+'</span></div></div>'
-    +'<div style="padding:18px">'+roster
-    +gearSummaryHtml
-    +'<div class="sb"><div class="sh">&#x1F37D; Daily Menu</div>'+menuHtml+'</div>'
-    +shoppingSection
+    +'<div style="padding:18px">'
+    +'<div class="print-pg1 print-pg1-end">'+roster+gearSummaryHtml+'</div>'
+    +'<div class="print-menu sb"><div class="sh">&#x1F37D; Daily Menu</div>'+menuHtml+'</div>'
+    +'<div class="print-shopping">'+shoppingSection+'</div>'
     +'</div></div>';
 }
 </script>
