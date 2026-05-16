@@ -473,17 +473,63 @@ function showTripList(){
     +'<div class="pb"><div style="font-size:12px;color:var(--muted);margin-bottom:12px">Check one or more trips then click Plan.</div>'
     +cards
     +'<div style="margin-top:16px;border-top:1.5px solid var(--stone);padding-top:14px">'
-    +'<div style="font-size:11px;color:var(--muted);margin-bottom:8px">Add another trip:</div>'
-    +'<div style="display:flex;gap:8px;max-width:360px">'
-    +'<input class="inp" id="manual-id2" placeholder="Activity ID or paste roster" style="margin:0;flex:1">'
-    +'<button class="btn bp" style="width:auto;padding:8px 14px;margin:0" onclick="addManual2()">+Add</button></div></div></div>';
+    +'<div style="font-size:12px;font-weight:700;color:var(--forest);margin-bottom:10px">Add Another Trip</div>'
+    +'<div style="display:flex;flex-direction:column;gap:10px;max-width:520px">'
+    // Activity ID
+    +'<div style="display:flex;gap:8px"><input class="inp" id="manual-id2" placeholder="Activity ID (e.g. 4521057)" style="margin:0;flex:1"><button class="btn bp" style="width:auto;padding:8px 14px;margin:0" onclick="addManual2()">Load</button></div>'
+    // Paste roster
+    +'<div><textarea id="paste-roster2" rows="5" style="width:100%;font-size:11px;padding:8px;border:1.5px solid var(--stone);border-radius:4px;font-family:monospace;resize:vertical" placeholder="Paste Flybook roster text here (Cmd+A, Cmd+C from PDF)..."></textarea>'
+    +'<button class="btn bp" style="width:auto;padding:7px 16px;margin-top:6px" onclick="addPasted2()">&#x25B6; Import Pasted Roster</button>'
+    +'<span id="paste2-status" style="margin-left:10px;font-size:12px;color:var(--sage)"></span></div>'
+    // PDF upload
+    +'<div><input type="file" id="pdf-upload2" accept=".pdf" style="display:none" onchange="addPDF2(this)">'
+    +'<button class="btn bp" style="width:auto;padding:7px 16px" onclick="document.getElementById('pdf-upload2').click()">&#x1F4C4; Upload PDF Roster</button>'
+    +'<span id="pdf2-status" style="margin-left:10px;font-size:12px;color:var(--sage)"></span></div>'
+    +'</div></div></div>';
 }
 
 function addManual2(){
   var id=(document.getElementById('manual-id2')||{}).value.trim();
   if(!id)return;
   document.getElementById('manual-id2').value='';
-  flybookFetch('/activities/scheduled/'+id).then(function(t){onTripLoaded(t,null);}).catch(function(){});
+  flybookFetch('/activities/scheduled/'+id).then(function(t){onTripLoaded(t,null);}).catch(function(){
+    flybookFetch('/api/v1/activities/scheduled/'+id).then(function(t){onTripLoaded(t,null);}).catch(function(){});
+  });
+}
+
+function addPasted2(){
+  var ta=document.getElementById('paste-roster2');
+  if(!ta||!ta.value.trim()){alert('Paste roster text first');return;}
+  var statusEl=document.getElementById('paste2-status');
+  processPDFText(ta.value, statusEl);
+  if(statusEl.textContent.indexOf('Imported')>-1) ta.value='';
+}
+
+function addPDF2(input){
+  var file=input.files[0];
+  if(!file)return;
+  var statusEl=document.getElementById('pdf2-status');
+  statusEl.textContent='Reading PDF...';
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var arr=new Uint8Array(e.target.result);
+    pdfjsLib.getDocument(arr).promise.then(function(pdf){
+      var pages=[];
+      for(var p=1;p<=pdf.numPages;p++) pages.push(p);
+      return Promise.all(pages.map(function(p){
+        return pdf.getPage(p).then(function(page){
+          return page.getTextContent().then(function(tc){
+            return tc.items.map(function(i){return i.str;}).join('\n');
+          });
+        });
+      }));
+    }).then(function(pageTexts){
+      statusEl.textContent='';
+      processPDFText(pageTexts.join('\n'), statusEl);
+    }).catch(function(e){statusEl.textContent='PDF error: '+e.message;});
+  };
+  reader.readAsArrayBuffer(file);
+  input.value='';
 }
 
 function toggleTrip(id,el){var cb=document.getElementById('cb-'+id);cb.checked=!cb.checked;el.classList.toggle('sel',cb.checked);updateSelActions();}
@@ -686,6 +732,10 @@ function autoAssignMeals(id) {
   // Step 1: Always assign Charcuterie to Day 1 Appetizer
   plan[0]['Appetizer'] = 'Charcuterie';
   used['Charcuterie'] = true;
+
+  // Step 1b: Always assign Deli Sandwiches to Day 1 Lunch (arrival day)
+  plan[0]['Lunch'] = 'Deli Sandwiches';
+  used['Deli Sandwiches'] = true;
 
   // Step 2: Assign Dinners first (anchor meals)
   var dinnerRecipes = S.recipes
