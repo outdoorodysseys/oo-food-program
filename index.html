@@ -411,7 +411,9 @@ function parseFlybookRoster(text){
     return null;
   }
 
+  var sectionIdx=0;
   sections.slice(1).forEach(function(section){
+    sectionIdx++;
     var lines=section.split('\n').map(function(l){return l.trim();}).filter(Boolean);
     var bstarts=[];
 
@@ -484,7 +486,8 @@ function parseFlybookRoster(text){
         tent:tent,
         companions:qa.companions||'',
         notes:qa.notes||'',
-        source:qa.source||''
+        source:qa.source||'',
+        resGroup:sectionIdx
       });
     });
   });
@@ -1003,37 +1006,60 @@ function buildPacket(id,trip,gs,plan){
   }
 
   // ── GEAR SUMMARY ─────────────────────────────────────────────
-  var sbRental=0, sbOwn=0, tentOO=0, tentOwn=0;
+  // Sleeping bag counts
+  var sbRental=0, sbOwn=0;
   gs.forEach(function(g){
     if(g.sleepingBag==='Rental') sbRental++;
     else if(g.sleepingBag==='Own') sbOwn++;
-    if(g.tent==='OO Tent') tentOO++;
-    else if(g.tent==='Own Tent') tentOwn++;
   });
-  // Tent sizes — we don't have size data so show total OO tents needed
+
+  // Tent count: 2 per tent max, NO strangers sharing — count by reservation group
+  // Group guests by resGroup, count OO tents needed per group (ceil(ooCount/2))
+  var resTentMap={};  // resGroup -> list of guests needing OO tent
+  var tentOwn=0;
+  gs.forEach(function(g){
+    if(g.tent==='OO Tent'){
+      var grp=g.resGroup||0;
+      if(!resTentMap[grp]) resTentMap[grp]=[];
+      resTentMap[grp].push(g.name);
+    } else if(g.tent==='Own Tent'){
+      tentOwn++;
+    }
+  });
+  var tentOO=0;
+  var tentBreakdown=[];
+  Object.keys(resTentMap).forEach(function(grp){
+    var names=resTentMap[grp];
+    var tents=Math.ceil(names.length/2);
+    tentOO+=tents;
+    tentBreakdown.push(tents+'T: '+names.join(' + '));
+  });
+
   var gearSummaryHtml='<div class="sb"><div class="sh">&#x1F3D2; Gear Summary</div>'
-    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">'
+    // SB box
     +'<div style="border:1.5px solid var(--stone);border-radius:6px;padding:12px">'
     +'<div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:6px">&#x1F6CF; Sleeping Bags + Pads</div>'
-    +'<div style="font-size:20px;font-weight:700;color:var(--forest)">'+sbRental+' <span style="font-size:12px;font-weight:400;color:var(--muted)">rentals needed</span></div>'
-    +'<div style="font-size:12px;color:var(--muted);margin-top:2px">'+sbOwn+' guests bringing own</div>'
+    +'<div style="font-size:22px;font-weight:700;color:var(--forest)">'+sbRental+'<span style="font-size:12px;font-weight:400;color:var(--muted)"> rentals</span></div>'
+    +'<div style="font-size:12px;color:var(--muted);margin-top:2px">'+sbOwn+' bringing own</div>'
     +'</div>'
+    // Tent box
     +'<div style="border:1.5px solid var(--stone);border-radius:6px;padding:12px">'
-    +'<div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:6px">&#x26FA; OO Tents Needed</div>'
-    +'<div style="font-size:20px;font-weight:700;color:var(--forest)">'+tentOO+' <span style="font-size:12px;font-weight:400;color:var(--muted)">OO tents</span></div>'
-    +'<div style="font-size:12px;color:var(--muted);margin-top:2px">'+tentOwn+' guests bringing own tent</div>'
+    +'<div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:6px">&#x26FA; OO Tents (2 per tent, no strangers)</div>'
+    +'<div style="font-size:22px;font-weight:700;color:var(--forest)">'+tentOO+'<span style="font-size:12px;font-weight:400;color:var(--muted)"> OO tents</span></div>'
+    +'<div style="font-size:11px;color:var(--muted);margin-top:4px">'+tentBreakdown.join(' &nbsp;|&nbsp; ')+'</div>'
+    +(tentOwn?'<div style="font-size:11px;color:var(--muted)">'+tentOwn+' guests bringing own</div>':'')
     +'</div>'
     +'</div>'
     // Individual gear list
     +(sbRental>0||tentOO>0?
-      '<div style="font-size:11px;color:var(--muted);margin-top:4px">'
+      '<div style="font-size:11px;color:var(--muted)">'
       +gs.filter(function(g){return g.sleepingBag==='Rental'||g.tent==='OO Tent';}).map(function(g){
         var items=[];
-        if(g.sleepingBag==='Rental') items.push('SB+Pad Rental');
-        if(g.tent==='OO Tent') items.push('OO Tent');
-        return '<span style="display:inline-block;margin:2px 6px 2px 0"><strong>'+g.name+'</strong>: '+items.join(', ')+'</span>';
-      }).join('')
-      +'</div>':''
+        if(g.sleepingBag==='Rental') items.push('SB+Pad');
+        if(g.tent==='OO Tent') items.push('Tent');
+        return '<span style="display:inline-block;margin:2px 8px 2px 0">&#x2022; <strong>'+g.name+'</strong>: '+items.join(' + ')+'</span>';
+      }).join('')+'</div>':''
     )
     +'</div>';
 
