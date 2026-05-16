@@ -1117,44 +1117,99 @@ function buildPacket(id,trip,gs,plan){
   var shopMap={};   // company-stocked items grouped by location
   var guideList=[]; // items guide buys directly
 
+  // Build inventory lookup map
+  var invLookup = {};
+  S.inv.forEach(function(item){
+    invLookup[(item['Item']||'').toLowerCase()] = item;
+  });
+  function findInv(ing) {
+    var ilow = ing.toLowerCase().replace(/^[\d.\s\/]+\s*(oz|lb|lbs|cup|cups|tbsp|tsp|can|cans|bunch|clove|cloves|bag|scoop|slice|slices)?\s*/i,'');
+    var best = null, bestLen = 0;
+    Object.keys(invLookup).forEach(function(k) {
+      if (k.length > 2 && ilow.indexOf(k) > -1 && k.length > bestLen) { best = invLookup[k]; bestLen = k.length; }
+      else if (k.length > 3) {
+        k.split(' ').forEach(function(w){ if(w.length>3&&ilow.indexOf(w)>-1&&!best){ best=invLookup[k]; bestLen=k.length; }});
+      }
+    });
+    return best;
+  }
+
+  // Base servings from recipe (for batch calculations)
+  var BASE_SERVINGS = 4;
+
   usedRecipes.forEach(function(r){
+    var recipeBase = parseInt(r['Base Servings']||BASE_SERVINGS) || BASE_SERVINGS;
     (r['Ingredients (Per Pax)']||'').split(',').map(function(s){return s.trim();}).forEach(function(ing){
       if(!ing)return;
-      var mv=null;
-      for(var i=0;i<S.inv.length;i++){
-        var item=S.inv[i];
-        var iname=(item['Item']||'').toLowerCase();
-        if(iname&&(ing.toLowerCase().indexOf(iname)>-1||iname.split(' ').some(function(w){return w.length>3&&ing.toLowerCase().indexOf(w)>-1;}))){mv=item;break;}
-      }
+      var mv = findInv(ing);
       var loc=mv?mv['Procurement Location']:'';
       var src=mv?mv['Typical Sourcing']:'';
       var isGuide=src==='Guide Procured';
+      var scaled = sc(ing, n);
+      var pkgQty = mv ? toPkgQty(ing, scaled, mv) : scaled;
+      // Extract clean item name (strip leading quantity)
+      var cleanName = ing.replace(/^[\d.\/]+\s*(oz|lb|lbs|cup|cups|tbsp|tsp|can|cans|bunch|clove|cloves|bag|scoop|slice|slices)?\s*/i,'').trim();
+      if(!cleanName) cleanName = ing;
       if(isGuide){
-        if(!guideList.some(function(i){return i.name===ing;}))
-          guideList.push({name:ing,scaled:sc(ing,n),loc:loc});
+        if(!guideList.some(function(i){return i.name===cleanName;}))
+          guideList.push({name:cleanName, scaled:scaled, pkgQty:pkgQty, loc:loc});
       } else {
         var bk=loc||'Other';
         if(!shopMap[bk])shopMap[bk]=[];
-        if(!shopMap[bk].some(function(i){return i.name===ing;}))
-          shopMap[bk].push({name:ing,scaled:sc(ing,n),src:src});
+        if(!shopMap[bk].some(function(i){return i.name===cleanName;}))
+          shopMap[bk].push({name:cleanName, scaled:scaled, pkgQty:pkgQty, src:src});
       }
     });
+    // Shop-prep items: show batches needed
     var sp=r['Shop-Prep Items'];
     if(sp&&sp!=='N/A')sp.split(',').forEach(function(s){
       var t=s.trim();if(!t)return;
       var bk='Prepped Food';
       if(!shopMap[bk])shopMap[bk]=[];
-      if(!shopMap[bk].some(function(i){return i.name===t;}))
-        shopMap[bk].push({name:t,scaled:'For '+n+' guests',src:'Shop Prep'});
+      if(!shopMap[bk].some(function(i){return i.name===t;})){
+        // Calculate batches: ceil(guests / base_servings)
+        var batches = Math.ceil(n / recipeBase);
+        var batchLabel = batches===1 ? '1 batch' : batches+' batches';
+        shopMap[bk].push({name:t, scaled:batchLabel, pkgQty:batchLabel, src:'Shop Prep'});
+      }
     });
   });
 
+  // Convert raw ingredient quantity to package quantity
+  function toPkgQty(ing, scaledQty, invItem) {
+    if (!invItem) return scaledQty;
+    var pkgSize = parseFloat(invItem['Package Size']||'1') || 1;
+    var pkgUnit = (invItem['Package Unit']||invItem['Unit']||'').toString();
+    // Extract numeric quantity from scaledQty string
+    var m = scaledQty.match(/^([\d.]+)\s*/);
+    if (!m) return scaledQty; // can't parse, return as-is
+    var qty = parseFloat(m[1]);
+    // Convert to packages
+    var pkgs = qty / pkgSize;
+    // Round up to nearest practical fraction: 1/4, 1/2, 3/4, 1, 1.5, 2...
+    var rounded;
+    if (pkgs <= 0.3) rounded = '¼';
+    else if (pkgs <= 0.6) rounded = '½';
+    else if (pkgs <= 0.85) rounded = '¾';
+    else if (pkgs <= 1.2) rounded = '1';
+    else if (pkgs <= 1.6) rounded = '1½';
+    else rounded = Math.ceil(pkgs).toString();
+    return rounded + ' ' + pkgUnit;
+  }
+
   function slItems(items, showSrc){
     return items.map(function(it){
-      var parts=it.scaled.match(/^([\d.]+\s*\w*)\s*(.*)/)||['',it.scaled,''];
-      return '<div class="sl-item"><input type="checkbox">'
-        +'<span class="sl-qty">'+(parts[1]||'')+'</span>'
-        +'<span style="flex:1">'+(parts[2]||it.scaled)+'</span>'
+      var display;
+      if (it.pkgQty) {
+        // Already converted to package quantity
+        display = '<span class="sl-qty">'+it.pkgQty+'</span>'
+          +'<span style="flex:1">'+it.name+'</span>';
+      } else {
+        var parts = (it.scaled||'').match(/^([\d.]+\s*\w*)\s*(.*)/)||['',it.scaled||'',''];
+        display = '<span class="sl-qty">'+(parts[1]||'')+'</span>'
+          +'<span style="flex:1">'+(parts[2]||it.name)+'</span>';
+      }
+      return '<div class="sl-item"><input type="checkbox">'+display
         +(showSrc&&it.src?'<span class="sl-src">'+it.src+'</span>':'')
         +'</div>';
     }).join('');
