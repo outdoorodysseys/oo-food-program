@@ -942,7 +942,8 @@ function generateAll(){
   if(!hasMeal){alert('Assign at least one meal first');return;}
   document.getElementById('gbtn').disabled=true;
   setstep(3);
-  // Get inventory
+  // Always fetch fresh inventory (package sizes may have changed)
+  S.inv = [];
   apiFetch('getInventory').then(function(r){if(r.success)S.inv=r.inventory||[];}).catch(function(){}).then(function(){
     var html='';
     S.selectedIds.forEach(function(id){
@@ -1199,17 +1200,19 @@ function buildPacket(id,trip,gs,plan){
 
   function slItems(items, showSrc){
     return items.map(function(it){
-      var display;
-      if (it.pkgQty) {
-        // Already converted to package quantity
-        display = '<span class="sl-qty">'+it.pkgQty+'</span>'
-          +'<span style="flex:1">'+it.name+'</span>';
-      } else {
-        var parts = (it.scaled||'').match(/^([\d.]+\s*\w*)\s*(.*)/)||['',it.scaled||'',''];
-        display = '<span class="sl-qty">'+(parts[1]||'')+'</span>'
-          +'<span style="flex:1">'+(parts[2]||it.name)+'</span>';
+      var qty = it.pkgQty || it.scaled || '';
+      var name = it.name || '';
+      // If qty contains the item name already (old format "For N guests"), just show name with dash qty
+      var qtyDisplay = '';
+      var nameDisplay = name;
+      if (qty && !qty.toLowerCase().startsWith('for ')) {
+        // Extract leading number/fraction from qty
+        var m = qty.match(/^([\d½¼¾]+\s*[a-zA-Z\/]*)/);
+        qtyDisplay = m ? m[1].trim() : qty;
       }
-      return '<div class="sl-item"><input type="checkbox">'+display
+      return '<div class="sl-item"><input type="checkbox">'
+        +'<span class="sl-qty">'+(qtyDisplay||'&mdash;')+'</span>'
+        +'<span style="flex:1">'+nameDisplay+'</span>'
         +(showSrc&&it.src?'<span class="sl-src">'+it.src+'</span>':'')
         +'</div>';
     }).join('');
