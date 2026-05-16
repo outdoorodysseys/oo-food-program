@@ -305,110 +305,99 @@ function extractDate(text){
 }
 
 function parseFlybookRoster(text){
-  // Works with pasted text from Preview/Chrome PDF viewer (spaces preserved)
-  // AND with text extracted from PDF binary
   var guests = [];
+  function normName(s){ return (s||'').toLowerCase().replace(/[^a-z]/g,''); }
 
-  // Step 1: Extract client info — "Name - Email: x - Phone: x - Age: x"
-  // Handles both spaced version ("Sejoon Park - Email:") and merged ("SejoonPark-Email:")
-  var clientRe = /([A-Za-z][a-zA-Z\s]+?)\s*-\s*Email:\s*([^\s]+)\s*-\s*Phone:\s*([^\s]+)\s*-\s*Age:\s*(\d+)/g;
-  var clients = [];
-  var cm;
-  while ((cm = clientRe.exec(text)) !== null) {
-    clients.push({
-      name: cm[1].trim(),
-      email: cm[2].trim(),
-      phone: cm[3].trim() === 'N/A' ? '' : cm[3].trim(),
-      age: cm[4].trim()
-    });
+  // Extract client info: "Name - Email: x - Phone: x - Age: x"
+  var clientRe = /([A-Za-z][a-zA-Z ]*?)\s*-\s*Email:\s*(\S+)\s*-\s*Phone:\s*(\S+)\s*-\s*Age:\s*(\d+)/g;
+  var clientList=[], clientMap={}, cm;
+  while ((cm=clientRe.exec(text))!==null) {
+    var c={name:cm[1].trim(),email:cm[2].trim(),phone:cm[3]==='N/A'?'':cm[3],age:cm[4]};
+    clientList.push(c);
+    clientMap[normName(c.name)]=c;
+    clientMap['em:'+c.email.toLowerCase()]=c;
   }
 
-  // Step 2: Split on "Reservation Questions" (with or without space)
-  var sections = text.split(/Reservation Questions|ReservationQuestions/);
+  function findClient(blockName, email) {
+    var k=normName(blockName);
+    if(k&&clientMap[k]) return clientMap[k];
+    if(email&&clientMap['em:'+email.toLowerCase()]) return clientMap['em:'+email.toLowerCase()];
+    // Insert spaces before caps: "DagMartensson"->"Dag Martensson"
+    var spaced=blockName.replace(/([a-z])([A-Z])/g,'$1 $2').replace(/([A-Z]+)([A-Z][a-z])/g,'$1 $2');
+    var parts=spaced.trim().split(/\s+/);
+    var first=normName(parts[0]||''), last=normName(parts[parts.length-1]||'');
+    var found=null;
+    Object.keys(clientMap).forEach(function(k2){
+      if(k2.indexOf('em:')<0&&!found&&first.length>1&&last.length>1&&k2.indexOf(first)>-1&&k2.indexOf(last)>-1) found=clientMap[k2];
+    });
+    if(!found) Object.keys(clientMap).forEach(function(k2){
+      if(k2.indexOf('em:')<0&&!found&&last.length>2&&k2.indexOf(last)>-1) found=clientMap[k2];
+    });
+    return found||null;
+  }
 
-  var clientIdx = 0;
+  var sections=text.split(/Reservation\s*Questions/);
+  var usedIdx={};
 
-  sections.slice(1).forEach(function(section) {
-    var lines = section.split('\n').map(function(l){ return l.trim(); }).filter(Boolean);
-
-    // Find guest block headers — lines ending in "- Guest #N Name" or "- FirstName LastName"
-    var blockStarts = [];
-    lines.forEach(function(line, i) {
-      if (/ - Guest #\d+ Name$/i.test(line) || / - [A-Z][a-z]+ [A-Z][a-z]+$/.test(line)
-          || /\w+-Guest#\d+/.test(line) || /\w+-[A-Z][a-z]+[A-Z][a-z]/.test(line)) {
-        blockStarts.push(i);
-      }
+  sections.slice(1).forEach(function(section){
+    var lines=section.split('\n').map(function(l){return l.trim();}).filter(Boolean);
+    var blockStarts=[];
+    lines.forEach(function(line,i){
+      var isHeader=(/\s-\s[A-Z]/.test(line)||/-[A-Z][a-zA-Z]/.test(line)||/-Guest#\d+/i.test(line));
+      var notClient=!/Email|Phone|Waiver|@/.test(line);
+      var notQ=!/^(Age\s|Height|Weight|Common|Other|Will you|Tent|Medical|Internal|Travel|Customer|Email Address)/.test(line);
+      if(isHeader&&notClient&&notQ) blockStarts.push(i);
     });
 
-    blockStarts.forEach(function(startIdx, gi) {
-      var endIdx = blockStarts[gi + 1] || lines.length;
-      var block = lines.slice(startIdx + 1, endIdx);
+    blockStarts.forEach(function(startIdx,gi){
+      var endIdx=blockStarts[gi+1]||lines.length;
+      var headerLine=lines[startIdx];
+      var block=lines.slice(startIdx+1,endIdx);
 
-      var qa = {
-        email:'', dietCommon:'NONE', dietOther:'', age:'',
-        height:'', weight:'', sleepingBag:'', tent:'', medical:''
-      };
+      var blockName='';
+      var m1=headerLine.match(/\s-\s(.+)$/);
+      if(m1){blockName=m1[1].trim().replace(/^Guest\s*#\d+\s*/i,'').replace(/\s*Name$/i,'').trim();}
+      else{var m2=headerLine.match(/-([A-Z][a-zA-Z]+(?:[A-Z][a-zA-Z]+)*)$/);if(m2)blockName=m2[1];}
 
-      // Known question labels — handle both spaced and merged
-      var KEYS = [
-        ['Email Address Must Be Provided', 'EmailAddressMustBeProvided', 'email'],
-        ['Common Dietary Restrictions', 'CommonDietaryRestrictions', 'dietCommon'],
-        ['Other Dietary Restrictions', 'OtherDietaryRestrictions', 'dietOther'],
-        ['Age', 'Age', 'age'],
-        ['Height in Inches', 'HeightinInches', 'height'],
-        ['Weight in Pounds', 'WeightinPounds', 'weight'],
-        ['Will you need a sleeping bag and pad?', 'Willyouneedasleepingbagandpad', 'sleepingBag'],
-        ['Tent Needs', 'TentNeeds', 'tent'],
-        ['Medical Conditions', 'MedicalConditions', 'medical']
+      var qa={email:'',dietCommon:'NONE',dietOther:'',age:'',height:'',weight:'',sleepingBag:'',tent:'',medical:''};
+      var QKEYS=[
+        ['Email Address Must Be Provided','EmailAddressMustBeProvided','email'],
+        ['Common Dietary Restrictions','CommonDietaryRestrictions','dietCommon'],
+        ['Other Dietary Restrictions','OtherDietaryRestrictions','dietOther'],
+        ['Age','Age','age'],['Height in Inches','HeightinInches','height'],
+        ['Weight in Pounds','WeightinPounds','weight'],
+        ['Will you need a sleeping bag and pad?','Willyouneedasleepingbagandpad','sleepingBag'],
+        ['Tent Needs','TentNeeds','tent'],['Medical Conditions','MedicalConditions','medical']
       ];
-
-      block.forEach(function(line) {
-        KEYS.forEach(function(kdef) {
-          var label = kdef[0], labelMerged = kdef[1], field = kdef[2];
-          var val = null;
-          if (line.indexOf(label) === 0) {
-            val = line.substring(label.length).trim();
-          } else if (line.indexOf(labelMerged) === 0 && label !== labelMerged) {
-            val = line.substring(labelMerged.length).trim();
-          }
-          if (val !== null && val !== 'N/A' && val.toLowerCase() !== 'no' && !qa[field]) {
-            qa[field] = val;
-          }
+      block.forEach(function(line){
+        QKEYS.forEach(function(kd){
+          var val=null;
+          if(line.indexOf(kd[0])===0) val=line.substring(kd[0].length).trim();
+          else if(kd[1]!==kd[0]&&line.indexOf(kd[1])===0) val=line.substring(kd[1].length).trim();
+          var bad=['n/a','no','none','nope',''];
+          if(val!==null&&bad.indexOf(val.toLowerCase())<0&&!qa[kd[2]]) qa[kd[2]]=val;
         });
       });
 
-      var client = clients[clientIdx] || {};
-      clientIdx++;
-      var name = client.name || 'Guest ' + clientIdx;
-      if (!name || name.length < 2) return;
+      var client=null;
+      if(blockName&&!/^Guest\s*#?\d*$/i.test(blockName)) client=findClient(blockName,qa.email);
+      if(!client&&qa.email) client=findClient('',qa.email);
+      if(!client){for(var i=0;i<clientList.length;i++){if(!usedIdx[i]){client=clientList[i];break;}}}
+      if(client){for(var j=0;j<clientList.length;j++){if(clientList[j]===client){usedIdx[j]=true;break;}}}
 
-      guests.push({
-        name: name,
-        phone: client.phone || '',
-        email: client.email || qa.email || '',
-        age: qa.age || client.age || '',
-        height: qa.height || '',
-        weight: qa.weight || '',
-        dietCommon: qa.dietCommon || 'NONE',
-        dietOther: qa.dietOther || '',
-        medical: qa.medical || '',
-        sleepingBag: qa.sleepingBag || '',
-        tent: qa.tent || ''
-      });
+      var name=(client&&client.name)||blockName||'Guest';
+      if(!name||name.length<2) return;
+      guests.push({name:name,phone:(client&&client.phone)||'',email:(client&&client.email)||qa.email||'',
+        age:qa.age||(client&&client.age)||'',height:qa.height||'',weight:qa.weight||'',
+        dietCommon:qa.dietCommon||'NONE',dietOther:qa.dietOther||'',medical:qa.medical||'',
+        sleepingBag:qa.sleepingBag||'',tent:qa.tent||''});
     });
   });
 
-  // Dedupe by name
-  var seen = {};
-  return guests.filter(function(g) {
-    var k = g.name.toLowerCase();
-    if (seen[k]) return false;
-    seen[k] = true;
-    return true;
-  });
+  var seen={};
+  return guests.filter(function(g){var k=normName(g.name);if(seen[k])return false;seen[k]=true;return true;});
 }
 
-// ── ACTIVITY ID LOAD ─────────────────────────────────────────
 function addManual(){
   var id=(document.getElementById('manual-id')||{}).value.trim();
   if(!id){alert('Enter an Activity ID');return;}
