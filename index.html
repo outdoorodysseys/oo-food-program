@@ -1168,7 +1168,7 @@ function buildPacket(id,trip,gs,plan){
       var scaled = sc(ing, n);
       var pkgQty = mv ? toPkgQty(ing, scaled, mv) : scaled;
       // Extract clean item name (strip leading quantity)
-      var cleanName = ing.replace(/^[\d.\/]+\s*(oz|lb|lbs|cup|cups|tbsp|tsp|can|cans|bunch|clove|cloves|bag|scoop|slice|slices)?\s*/i,'').trim();
+      var cleanName = ing.replace(/^[\d.\/]+\s*(oz|lbs?|cups?|tbsp|tsp|cans?|bunch(?:es)?|cloves?|bags?|scoops?|slices?|loaves?|pints?|quarts?|dozen|each|lbs?)\s*/i,'').trim();
       if(!cleanName) cleanName = ing;
       if(isGuide){
         if(!guideList.some(function(i){return i.name===cleanName;}))
@@ -1202,33 +1202,37 @@ function buildPacket(id,trip,gs,plan){
     var pkgUnit = (invItem['Package Unit']||invItem['Unit']||'').toString();
     if (pkgSize <= 0) return scaledQty;
 
-    // Extract numeric value from scaledQty (e.g. "20 slice s Bread" -> 20, "2.5 bunch Cilantro" -> 2.5)
-    var m = scaledQty.match(/^([\d.]+)/);
+    // Parse: extract leading number from scaledQty
+    // e.g. "30 slices Bread" -> qty=30, recipeUnit="slices"
+    // e.g. "2.5 oz Butter" -> qty=2.5, recipeUnit="oz"
+    // e.g. "10 Eggs" -> qty=10, recipeUnit="" (countable)
+    var m = scaledQty.match(/^([\d.]+)\s*([a-zA-Z]*)/);
     if (!m) return scaledQty;
     var qty = parseFloat(m[1]);
     if (isNaN(qty) || qty === 0) return scaledQty;
 
-    // If pkgUnit contains "/" it means pkgSize units of recipe-unit per package
-    // e.g. pkgSize=20, pkgUnit="slices/loaf" -> 20 slices per loaf
-    // e.g. pkgSize=12, pkgUnit="eggs/dozen" -> 12 eggs per dozen
-    // e.g. pkgSize=16, pkgUnit="oz/lb" -> 16 oz per lb
+    // The pkgUnit format is "recipeUnit/purchaseUnit" e.g. "slices/loaf", "oz/lb", "eggs/dozen"
+    // pkgSize = how many recipeUnits per purchaseUnit
     var pkgs = qty / pkgSize;
 
-    // Round to practical amounts
-    var rounded;
-    if (pkgs <= 0.15) rounded = '⅛';
-    else if (pkgs <= 0.3) rounded = '¼';
-    else if (pkgs <= 0.6) rounded = '½';
-    else if (pkgs <= 0.85) rounded = '¾';
-    else if (pkgs <= 1.15) rounded = '1';
-    else if (pkgs <= 1.6) rounded = '1½';
-    else if (pkgs <= 2.15) rounded = '2';
-    else rounded = Math.ceil(pkgs).toString();
+    // Round to practical purchase amounts
+    function roundPkg(n) {
+      if (n <= 0.15) return '⅛';
+      if (n <= 0.3)  return '¼';
+      if (n <= 0.6)  return '½';
+      if (n <= 0.85) return '¾';
+      if (n <= 1.15) return '1';
+      if (n <= 1.6)  return '1½';
+      if (n <= 2.15) return '2';
+      if (n <= 2.6)  return '2½';
+      if (n <= 3.15) return '3';
+      return String(Math.ceil(n));
+    }
 
-    // Clean up unit label — show just the purchase unit (after the /)
+    // Display unit = purchase unit (after the / in pkgUnit, or pkgUnit itself)
     var displayUnit = pkgUnit.indexOf('/') > -1 ? pkgUnit.split('/')[1] : pkgUnit;
 
-    return rounded + ' ' + displayUnit;
+    return roundPkg(pkgs) + ' ' + displayUnit;
   }
 
   function slItems(items, showSrc){
