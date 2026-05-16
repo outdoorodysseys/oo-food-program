@@ -100,6 +100,7 @@ body{font-family:Arial,sans-serif;background:var(--cream);color:var(--ink)}
   <div style="display:flex;align-items:center;gap:10px">
     <span class="nb warn" id="nbadge">Ready</span>
     <button onclick="hardReset()" style="background:rgba(255,255,255,.15);border:none;color:rgba(255,255,255,.8);font-size:10px;padding:4px 10px;border-radius:4px;cursor:pointer;font-weight:700;letter-spacing:.04em" title="Clear all data and reload">&#x21BA; Reset</button>
+    <span style="font-size:9px;color:rgba(255,255,255,.35);margin-left:4px">build-8bee4de</span>
   </div>
 </nav>
 <div class="main">
@@ -165,7 +166,7 @@ body{font-family:Arial,sans-serif;background:var(--cream);color:var(--ink)}
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────
-var APP_VERSION = '2.0.' + (Math.floor(Date.now()/86400000)); // changes daily
+var APP_VERSION = 'build-8bee4de'; // updated each deploy
 
 // Hard reset: clear state and reload with cache buster
 function hardReset() {
@@ -175,17 +176,14 @@ function hardReset() {
 
 // Auto-reload if page was cached (check version param)
 (function(){
-  var url = new URL(window.location.href);
-  // If no version param and page might be stale, add one silently
-  // This ensures fresh JS on every load without user action
-  if (!url.searchParams.get('v')) {
-    var stored = sessionStorage.getItem('oo_version');
-    if (stored && stored !== APP_VERSION) {
-      sessionStorage.setItem('oo_version', APP_VERSION);
-      window.location.replace(window.location.pathname + '?v=' + Date.now());
-    } else {
-      sessionStorage.setItem('oo_version', APP_VERSION);
-    }
+  // Always check if JS is stale — compare embedded build ID to last seen
+  var stored = sessionStorage.getItem('oo_version');
+  if (stored && stored !== APP_VERSION) {
+    // New deploy detected — force hard reload with cache bust
+    sessionStorage.setItem('oo_version', APP_VERSION);
+    window.location.replace(window.location.pathname + '?v=' + Date.now());
+  } else {
+    sessionStorage.setItem('oo_version', APP_VERSION);
   }
 })();
 
