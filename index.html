@@ -232,28 +232,43 @@ function handlePDFUpload(input){
   var file = input.files[0];
   if(!file) return;
   var statusEl = document.getElementById('pdf-status');
-  statusEl.textContent = 'Reading PDF...';
+  statusEl.innerHTML = 'Reading PDF...';
+
+  // Set a timeout — if PDF.js hangs, show paste fallback
+  var timer = setTimeout(function(){
+    statusEl.innerHTML = '&#x26A0; PDF processing timed out.<br>'
+      +'<strong>Use the paste method instead:</strong> Open the PDF, press <strong>Cmd+A</strong> then <strong>Cmd+C</strong>, then paste in the box above and click Import Roster.';
+    log('PDF timeout — use paste method','err');
+  }, 15000);
+
   var reader = new FileReader();
   reader.onload = function(e){
     var arr = new Uint8Array(e.target.result);
-    pdfjsLib.getDocument(arr).promise.then(function(pdf){
-      var pages = [];
-      for(var p=1;p<=pdf.numPages;p++) pages.push(p);
-      return Promise.all(pages.map(function(p){
-        return pdf.getPage(p).then(function(page){
+    var loadingTask = pdfjsLib.getDocument({data: arr, disableWorker: true});
+    loadingTask.promise.then(function(pdf){
+      var pagePromises = [];
+      for(var p=1;p<=pdf.numPages;p++){
+        pagePromises.push(pdf.getPage(p).then(function(page){
           return page.getTextContent().then(function(tc){
             return tc.items.map(function(i){return i.str;}).join('\n');
           });
-        });
-      }));
+        }));
+      }
+      return Promise.all(pagePromises);
     }).then(function(pageTexts){
+      clearTimeout(timer);
       var text = pageTexts.join('\n');
       statusEl.textContent = '';
       processPDFText(text, statusEl);
     }).catch(function(e){
-      statusEl.textContent = 'PDF error: '+e.message;
+      clearTimeout(timer);
+      statusEl.innerHTML = '&#x26A0; PDF error: '+e.message+'<br>Try the paste method instead.';
       log('PDF error: '+e.message,'err');
     });
+  };
+  reader.onerror = function(){
+    clearTimeout(timer);
+    statusEl.textContent = 'Could not read file.';
   };
   reader.readAsArrayBuffer(file);
   input.value='';
@@ -604,24 +619,31 @@ function addPDF2(input){
   var file=input.files[0];
   if(!file)return;
   var statusEl=document.getElementById('pdf2-status');
-  statusEl.textContent='Reading PDF...';
+  statusEl.innerHTML='Reading PDF...';
+  var timer=setTimeout(function(){
+    statusEl.innerHTML='&#x26A0; PDF timed out. Use the paste option instead.';
+  },15000);
   var reader=new FileReader();
   reader.onload=function(e){
     var arr=new Uint8Array(e.target.result);
-    pdfjsLib.getDocument(arr).promise.then(function(pdf){
-      var pages=[];
-      for(var p=1;p<=pdf.numPages;p++) pages.push(p);
-      return Promise.all(pages.map(function(p){
-        return pdf.getPage(p).then(function(page){
-          return page.getTextContent().then(function(tc){
+    pdfjsLib.getDocument({data:arr,disableWorker:true}).promise.then(function(pdf){
+      var pp=[];
+      for(var p=1;p<=pdf.numPages;p++) pp.push(p);
+      return Promise.all(pp.map(function(p){
+        return pdf.getPage(p).then(function(pg){
+          return pg.getTextContent().then(function(tc){
             return tc.items.map(function(i){return i.str;}).join('\n');
           });
         });
       }));
-    }).then(function(pageTexts){
+    }).then(function(pts){
+      clearTimeout(timer);
       statusEl.textContent='';
-      processPDFText(pageTexts.join('\n'), statusEl);
-    }).catch(function(e){statusEl.textContent='PDF error: '+e.message;});
+      processPDFText(pts.join('\n'),statusEl);
+    }).catch(function(e){
+      clearTimeout(timer);
+      statusEl.innerHTML='&#x26A0; PDF error: '+e.message+'. Use paste instead.';
+    });
   };
   reader.readAsArrayBuffer(file);
   input.value='';
