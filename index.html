@@ -103,6 +103,13 @@ body{font-family:Arial,sans-serif;background:var(--cream);color:var(--ink)}
       <div class="step" id="s2"><div class="sn">2</div>Plan Menus</div>
       <div class="step" id="s3"><div class="sn">3</div>Print Packets</div>
     </div>
+    <div style="border:1.5px solid var(--stone);border-radius:4px;padding:8px">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;font-weight:700;color:var(--red)">
+        <input type="checkbox" id="fire-ban" style="accent-color:var(--red);width:16px;height:16px" onchange="onFireBanChange()">
+        &#x1F525; Fire Ban Active
+      </label>
+      <div style="font-size:10px;color:var(--muted);margin-top:4px">Excludes Dutch Oven recipes</div>
+    </div>
     <div id="sel-actions" style="display:none">
       <button class="btn bp" id="plan-btn" onclick="startPlanning()">&#x25B6; Plan Selected Trips</button>
     </div>
@@ -579,6 +586,19 @@ function setMeal(el){
 
 
 // ── AUTO-ASSIGN MEALS ─────────────────────────────────────────
+function onFireBanChange() {
+  // If trips already planned, re-run auto-assign
+  if (S.selectedIds.length && document.getElementById('s2').classList.contains('act')) {
+    S.selectedIds.forEach(function(id){ autoAssignMeals(id); });
+    showPlanners();
+  }
+}
+
+function isFireBan() {
+  var cb = document.getElementById('fire-ban');
+  return cb && cb.checked;
+}
+
 function autoAssignMeals(id) {
   var td = S.tripData[id];
   if (!td) return;
@@ -655,36 +675,68 @@ function autoAssignMeals(id) {
       });
     });
 
+    // Dutch oven penalty
+    if (isFireBan() && r['Dutch Oven Required?'] === 'Yes') return -999;
+
     return score;
   }
 
-  // For each meal type, rank recipes and assign
-  var used = {}; // track used recipe names to avoid repeats
-  
-  MTYPES.forEach(function(mt) {
-    var eligible = S.recipes
-      .filter(function(r) { return r['Category'] === mt; })
-      .map(function(r) { return {r:r, score:scoreRecipe(r)}; })
-      .filter(function(x) { return x.score > -999; })
-      .sort(function(a,b) { return b.score - a.score; });
+  var used = {};
 
-    var recipeQueue = eligible.map(function(x){return x.r;});
+  // Step 1: Always assign Charcuterie to Day 1 Appetizer
+  plan[0]['Appetizer'] = 'Charcuterie';
+  used['Charcuterie'] = true;
+
+  // Step 2: Assign Dinners first (anchor meals)
+  var dinnerRecipes = S.recipes
+    .filter(function(r){ return r['Category']==='Dinner'; })
+    .map(function(r){ return {r:r, score:scoreRecipe(r)}; })
+    .filter(function(x){ return x.score > -999; })
+    .sort(function(a,b){ return b.score - a.score; });
+
+  var dinnerQueue = dinnerRecipes.map(function(x){return x.r;});
+  var dqIdx = 0;
+
+  for (var d = 0; d < days; d++) {
+    if (d === days-1) continue; // skip last day dinner
+    while (dqIdx < dinnerQueue.length && used[dinnerQueue[dqIdx]['Recipe Name']]) dqIdx++;
+    if (dqIdx < dinnerQueue.length) {
+      var dinner = dinnerQueue[dqIdx];
+      plan[d]['Dinner'] = dinner['Recipe Name'];
+      used[dinner['Recipe Name']] = true;
+      // If dinner has a paired appetizer, assign it (for days > 0)
+      var paired = dinner['Pairs With Appetizer'];
+      if (paired && paired.trim() && !used[paired.trim()] && d > 0) {
+        plan[d]['Appetizer'] = paired.trim();
+        used[paired.trim()] = true;
+      }
+      dqIdx++;
+    }
+  }
+
+  // Step 3: Assign remaining meal types
+  var otherTypes = ['Breakfast','Appetizer','Lunch','Dessert','Snacks'];
+  otherTypes.forEach(function(mt) {
+    var eligible = S.recipes
+      .filter(function(r){ return r['Category']===mt; })
+      .map(function(r){ return {r:r, score:scoreRecipe(r)}; })
+      .filter(function(x){ return x.score > -999; })
+      .sort(function(a,b){ return b.score - a.score; });
+
+    var queue = eligible.map(function(x){return x.r;});
     var qIdx = 0;
 
     for (var d = 0; d < days; d++) {
-      // Skip Day 1 Breakfast
+      // Skip rules
       if (d === 0 && mt === 'Breakfast') continue;
-      // Skip Last Day Dinner and Dessert
-      if (d === days-1 && (mt === 'Dinner' || mt === 'Dessert')) continue;
-      // Skip Last Day Lunch too (usually traveling home)
-      if (d === days-1 && mt === 'Lunch') continue;
+      if (d === days-1 && (mt === 'Dinner' || mt === 'Dessert' || mt === 'Lunch')) continue;
+      // Skip if already assigned (e.g. Charcuterie on Day 1, paired appetizers)
+      if (plan[d][mt]) continue;
 
-      // Pick next unused recipe
-      while (qIdx < recipeQueue.length && used[recipeQueue[qIdx]['Recipe Name']]) qIdx++;
-      if (qIdx < recipeQueue.length) {
-        var recipe = recipeQueue[qIdx];
-        plan[d][mt] = recipe['Recipe Name'];
-        used[recipe['Recipe Name']] = true;
+      while (qIdx < queue.length && used[queue[qIdx]['Recipe Name']]) qIdx++;
+      if (qIdx < queue.length) {
+        plan[d][mt] = queue[qIdx]['Recipe Name'];
+        used[queue[qIdx]['Recipe Name']] = true;
         qIdx++;
       }
     }
