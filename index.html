@@ -776,7 +776,7 @@ function autoAssignMeals(id) {
     for (var d = 0; d < days; d++) {
       // Skip rules
       if (d === 0 && mt === 'Breakfast') continue;
-      if (d === days-1 && (mt === 'Dinner' || mt === 'Dessert' || mt === 'Lunch')) continue;
+      if (d === days-1 && (mt === 'Dinner' || mt === 'Dessert')) continue;
       // Skip if already assigned (e.g. Charcuterie on Day 1, paired appetizers)
       if (plan[d][mt]) continue;
 
@@ -785,6 +785,13 @@ function autoAssignMeals(id) {
         plan[d][mt] = queue[qIdx]['Recipe Name'];
         used[queue[qIdx]['Recipe Name']] = true;
         qIdx++;
+      } else if (mt === 'Lunch' || mt === 'Breakfast' || mt === 'Snacks') {
+        // Allow repeat for high-frequency meal types if we run out
+        qIdx = 0;
+        while (qIdx < queue.length && plan[d][mt]) qIdx++;
+        if (queue.length > 0) {
+          plan[d][mt] = queue[qIdx % queue.length]['Recipe Name'];
+        }
       }
     }
   });
