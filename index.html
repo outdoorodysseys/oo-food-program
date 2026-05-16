@@ -326,6 +326,12 @@ function parseFlybookRoster(text){
   function norm(s){return (s||'').toLowerCase().replace(/[^a-z0-9]/g,'');}
   function spaceCaps(s){return (s||'').replace(/([a-z])([A-Z])/g,'$1 $2').replace(/([A-Z]+)([A-Z][a-z])/g,'$1 $2');}
 
+  // Extract reservation group names: "James T Chapman - JPCWOW - 4 Guest(s)"
+  var resGroupNames=[];
+  var rgRe=/^([A-Za-z][a-zA-Z ]+?) - [A-Z0-9]+ - \d+ Guest/gm;
+  var rgm;
+  while((rgm=rgRe.exec(text))!==null) resGroupNames.push(rgm[1].trim());
+
   // Step 1: Extract clients from "Name - Email: x - Phone: x - Age: x" (spaced or merged)
   var clients=[], byEmail={}, byNorm={};
   var cRe=/([A-Za-z][a-zA-Z ]*?)\s*-\s*Email:\s*(\S+)\s*-\s*Phone:\s*(\S+)\s*-\s*Age:\s*(\d+)/g;
@@ -487,7 +493,8 @@ function parseFlybookRoster(text){
         companions:qa.companions||'',
         notes:qa.notes||'',
         source:qa.source||'',
-        resGroup:sectionIdx
+        resGroup:sectionIdx,
+        resGroupName:resGroupNames[sectionIdx-1]||''
       });
     });
   });
@@ -930,46 +937,57 @@ function buildPacket(id,trip,gs,plan){
   var dfKeys=Object.keys(dfs);
   var ah=(dfKeys.length||dns.length)?'<div class="al">&#x26A0; <strong>Dietary flags:</strong> '+dfKeys.map(function(f){return '<span class="fl fd">'+f+'</span>';}).join('')+dns.map(function(x){return '<br>&middot; <strong>'+x.name+'</strong>: '+x.note;}).join('')+'</div>':'';
 
-  // Roster — grouped by reservation, all fields
-  function guestRow(g, resBadge) {
-    var diet = g.diet||g.dietCommon||'None';
+  function bad(s){return !s||['n/a','no','none','nope','n','na'].indexOf((s||'').toLowerCase().trim())>-1;}
+
+  function guestRow(g) {
+    var diet=g.diet||g.dietCommon||'None';
     var df='';
-    if(diet&&diet!=='None'&&diet!=='NONE'){
+    if(diet&&diet!=='None'&&diet!=='NONE')
       df+=diet.split(/[|,]/).map(function(d){return '<span class="fl fd">'+d.trim()+'</span>';}).join('');
-    }
     var other=g.dietOther||'';
     if(other&&!bad(other))df+='<span class="fl fn">'+other.substring(0,50)+'</span>';
     if(!df)df='<span class="fl fo">None</span>';
     var sb=g.sleepingBag||'';
     var tent=g.tent||'';
-    var sbBadge=sb==='Rental'?'<span class="fl fg">SB Rental</span>':sb==='Own'?'<span class="fl fo">Own SB</span>':sb?'<span class="fl fn">'+sb.substring(0,20)+'</span>':'';
-    var tentBadge=tent==='OO Tent'?'<span class="fl fg">OO Tent</span>':tent==='Own Tent'?'<span class="fl fo">Own Tent</span>':tent?'<span class="fl fn">'+tent.substring(0,20)+'</span>':'';
-    var med=g.medical&&!bad(g.medical)?g.medical:'';
-    var notes=g.notes&&!bad(g.notes)?g.notes:'';
-    var companions=g.companions&&!bad(g.companions)?g.companions:'';
+    var sbBadge=sb==='Rental'?'<span class="fl fg">SB Rental</span>':sb==='Own'?'<span class="fl fo">Own SB</span>':sb?'<span class="fl fn">'+sb.substring(0,20)+'</span>':'&mdash;';
+    var tentBadge=tent==='OO Tent'?'<span class="fl fg">OO Tent</span>':tent==='Own Tent'?'<span class="fl fo">Own Tent</span>':tent?'<span class="fl fn">'+tent.substring(0,20)+'</span>':'&mdash;';
+    var med=g.medical&&!bad(g.medical)?g.medical:'&mdash;';
     var extras='';
-    if(companions)extras+='<div style="font-size:10px;color:var(--muted)">With: '+companions.substring(0,60)+'</div>';
-    if(notes)extras+='<div style="font-size:10px;color:var(--muted)">Note: '+notes.substring(0,80)+'</div>';
+    if(g.companions&&!bad(g.companions))extras+='<div style="font-size:10px;color:var(--muted)">&#x1F91D; '+g.companions.substring(0,60)+'</div>';
+    if(g.notes&&!bad(g.notes))extras+='<div style="font-size:10px;color:var(--muted)">&#x1F4DD; '+g.notes.substring(0,80)+'</div>';
     return '<tr style="vertical-align:top">'
       +'<td><div style="font-size:14px;font-weight:700">'+g.name+'</div>'
-      +(resBadge?'<div style="font-size:9px;color:var(--muted)">'+resBadge+'</div>':'')
-      +(g.phone?'<div style="font-size:11px;color:var(--muted)">'+g.phone+'</div>':'')+extras+'</td>'
-      +'<td style="white-space:nowrap">'+(g.height?g.height+'&quot;':'-')+' / '+(g.weight?g.weight+'lbs':'-')+'</td>'
-      +'<td>'+(g.age||'-')+'</td>'
+      +(g.phone?'<div style="font-size:11px;color:var(--muted)">'+g.phone+'</div>':'')
+      +extras+'</td>'
+      +'<td style="white-space:nowrap">'+(g.height||'&mdash;')+' / '+(g.weight?g.weight+' lbs':'&mdash;')+'</td>'
+      +'<td>'+(g.age||'&mdash;')+'</td>'
       +'<td>'+df+'</td>'
-      +'<td style="font-size:11px">'+(med||'&mdash;')+'</td>'
+      +'<td style="font-size:11px">'+med+'</td>'
       +'<td>'+sbBadge+'</td>'
       +'<td>'+tentBadge+'</td>'
       +'</tr>';
   }
-  function bad(s){return !s||['n/a','no','none','nope','n','na'].indexOf((s||'').toLowerCase().trim())>-1;}
 
-  // Group guests by reservation if reservation data available
+  // Group by reservation
   var rrows='';
   if(gs.length){
-    // Try to detect reservation groups from guest order (groups of 2-4)
-    // For now show all guests with their data
-    rrows=gs.map(function(g){return guestRow(g,'');}).join('');
+    // Build groups keyed by resGroup index
+    var groups={};
+    var groupOrder=[];
+    gs.forEach(function(g){
+      var grp=String(g.resGroup||0);
+      if(!groups[grp]){groups[grp]=[];groupOrder.push(grp);}
+      groups[grp].push(g);
+    });
+    groupOrder.forEach(function(grp){
+      var grpGuests=groups[grp];
+      var grpName=grpGuests[0].resGroupName||'';
+      // Group header row
+      rrows+='<tr><td colspan="7" style="background:var(--pale);padding:6px 10px;font-size:11px;font-weight:700;color:var(--forest);border-top:2px solid var(--stone)">'
+        +(grpName?'&#x1F3F7; '+grpName:'&#x1F465; Group '+(parseInt(grp)))+' &mdash; '+grpGuests.length+' guest'+(grpGuests.length>1?'s':'')
+        +'</td></tr>';
+      grpGuests.forEach(function(g){rrows+=guestRow(g);});
+    });
   } else {
     rrows='<tr><td colspan="7" style="color:var(--muted);font-style:italic;padding:16px">No guest data — paste or upload the Flybook roster PDF</td></tr>';
   }
