@@ -475,15 +475,12 @@ function showTripList(){
     +'<div style="margin-top:16px;border-top:1.5px solid var(--stone);padding-top:14px">'
     +'<div style="font-size:12px;font-weight:700;color:var(--forest);margin-bottom:10px">Add Another Trip</div>'
     +'<div style="display:flex;flex-direction:column;gap:10px;max-width:520px">'
-    // Activity ID
     +'<div style="display:flex;gap:8px"><input class="inp" id="manual-id2" placeholder="Activity ID (e.g. 4521057)" style="margin:0;flex:1"><button class="btn bp" style="width:auto;padding:8px 14px;margin:0" onclick="addManual2()">Load</button></div>'
-    // Paste roster
-    +'<div><textarea id="paste-roster2" rows="5" style="width:100%;font-size:11px;padding:8px;border:1.5px solid var(--stone);border-radius:4px;font-family:monospace;resize:vertical" placeholder="Paste Flybook roster text here (Cmd+A, Cmd+C from PDF)..."></textarea>'
+    +'<div><textarea id="paste-roster2" rows="5" style="width:100%;font-size:11px;padding:8px;border:1.5px solid var(--stone);border-radius:4px;font-family:monospace;resize:vertical" placeholder="Paste Flybook roster text here..."></textarea>'
     +'<button class="btn bp" style="width:auto;padding:7px 16px;margin-top:6px" onclick="addPasted2()">&#x25B6; Import Pasted Roster</button>'
     +'<span id="paste2-status" style="margin-left:10px;font-size:12px;color:var(--sage)"></span></div>'
-    // PDF upload
     +'<div><input type="file" id="pdf-upload2" accept=".pdf" style="display:none" onchange="addPDF2(this)">'
-    +'<button class="btn bp" style="width:auto;padding:7px 16px" onclick="document.getElementById('pdf-upload2').click()">&#x1F4C4; Upload PDF Roster</button>'
+    +'<button class="btn bp" style="width:auto;padding:7px 16px" onclick="document.getElementById(\'pdf-upload2\').click()">&#x1F4C4; Upload PDF Roster</button>'
     +'<span id="pdf2-status" style="margin-left:10px;font-size:12px;color:var(--sage)"></span></div>'
     +'</div></div></div>';
 }
