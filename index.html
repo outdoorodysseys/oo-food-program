@@ -225,8 +225,9 @@ function flybookFetch(path, opts) {
 // ── INIT ─────────────────────────────────────────────────────
 window.addEventListener('load', function(){
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-  // Load recipes and packet log in background
+  // Load recipes, inventory and packet log in background
   apiFetch('getRecipes').then(function(r){if(r.success){S.recipes=r.recipes||[];log(S.recipes.length+' recipes','ok');}}).catch(function(){});
+  apiFetch('getInventory').then(function(r){if(r.success){S.inv=r.inventory||[];log(S.inv.length+' inv items','ok');}}).catch(function(){});
   apiFetch('getPacketLog').then(function(r){if(r.success)S.packetLog=r.log||[];}).catch(function(){});
   // Try to load upcoming trips from Flybook calendar
   loadUpcomingTrips();
