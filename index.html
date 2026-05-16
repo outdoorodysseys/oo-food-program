@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>OO Food Program — Trip Packet Generator</title>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -94,7 +97,10 @@ body{font-family:Arial,sans-serif;background:var(--cream);color:var(--ink)}
     <span style="font-size:22px">&#x1F6F6;</span>
     <div><div class="nl">Outdoor Odysseys</div><div class="ns">Food Program &middot; Trip Packet Generator</div></div>
   </div>
-  <span class="nb warn" id="nbadge">Ready</span>
+  <div style="display:flex;align-items:center;gap:10px">
+    <span class="nb warn" id="nbadge">Ready</span>
+    <button onclick="hardReset()" style="background:rgba(255,255,255,.15);border:none;color:rgba(255,255,255,.8);font-size:10px;padding:4px 10px;border-radius:4px;cursor:pointer;font-weight:700;letter-spacing:.04em" title="Clear all data and reload">&#x21BA; Reset</button>
+  </div>
 </nav>
 <div class="main">
   <div class="sidebar">
@@ -159,6 +165,31 @@ body{font-family:Arial,sans-serif;background:var(--cream);color:var(--ink)}
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────
+var APP_VERSION = '2.0.' + (Math.floor(Date.now()/86400000)); // changes daily
+
+// Hard reset: clear state and reload with cache buster
+function hardReset() {
+  if (!confirm('Reset the app? This clears all loaded trips and starts fresh.')) return;
+  window.location.href = window.location.pathname + '?v=' + Date.now();
+}
+
+// Auto-reload if page was cached (check version param)
+(function(){
+  var url = new URL(window.location.href);
+  // If no version param and page might be stale, add one silently
+  // This ensures fresh JS on every load without user action
+  if (!url.searchParams.get('v')) {
+    var stored = sessionStorage.getItem('oo_version');
+    if (stored && stored !== APP_VERSION) {
+      sessionStorage.setItem('oo_version', APP_VERSION);
+      window.location.replace(window.location.pathname + '?v=' + Date.now());
+    } else {
+      sessionStorage.setItem('oo_version', APP_VERSION);
+    }
+  }
+})();
+
+
 var APPS_SCRIPT = 'https://script.google.com/macros/s/AKfycbwz6PEkFm4GVDhkmlrqYpzkHQJ2gbrL9SCFWknzXHjVvIsITMaCWeyUi11zDcAB2Nrq/exec';
 var FLYBOOK_BASE = 'https://go.theflybook.com';
 var MTYPES = ['Breakfast','Appetizer','Lunch','Dinner','Dessert','Snacks'];
