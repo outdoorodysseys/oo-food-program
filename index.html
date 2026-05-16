@@ -1143,13 +1143,24 @@ function buildPacket(id,trip,gs,plan){
     invLookup[(item['Item']||'').toLowerCase()] = item;
   });
   function findInv(ing) {
-    var ilow = ing.toLowerCase().replace(/^[\d.\s\/]+\s*(oz|lb|lbs|cup|cups|tbsp|tsp|can|cans|bunch|clove|cloves|bag|scoop|slice|slices)?\s*/i,'');
+    // Strip leading qty+unit+ranges to get clean ingredient name
+    var ilow = ing.toLowerCase()
+      .replace(/^[\d.]+\s*-\s*\d+\s+/, '')
+      .replace(/^[\d.]+\s*(oz|lbs?|cups?|tbsp|tsp|cans?|bunches?|cloves?|bags?|scoops?|slices?|loaves?|pints?|quarts?|dozen|each|lb)\s*/i,'')
+      .replace(/^[\d.]+\s+/,'')
+      .trim();
     var best = null, bestLen = 0;
     Object.keys(invLookup).forEach(function(k) {
-      if (k.length > 2 && ilow.indexOf(k) > -1 && k.length > bestLen) { best = invLookup[k]; bestLen = k.length; }
-      else if (k.length > 3) {
-        k.split(' ').forEach(function(w){ if(w.length>3&&ilow.indexOf(w)>-1&&!best){ best=invLookup[k]; bestLen=k.length; }});
-      }
+      if (k.length < 3) return;
+      var kwords = k.split(/[\s\/\-]+/).filter(function(w){return w.length>2;});
+      var iwords = ilow.split(/[\s\/\-]+/).filter(function(w){return w.length>2;});
+      var matches = 0;
+      kwords.forEach(function(kw){
+        iwords.forEach(function(iw){
+          if(iw.indexOf(kw)>-1||kw.indexOf(iw)>-1) matches++;
+        });
+      });
+      if(matches>0 && k.length>bestLen){best=invLookup[k];bestLen=k.length;}
     });
     return best;
   }
