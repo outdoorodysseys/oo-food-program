@@ -1057,7 +1057,20 @@ function buildPacket(id,trip,gs,plan){
       totalMeals++;
       var r=S.recipes.find(function(rc){return rc['Recipe Name']===rname;});if(!r)return;
       if(usedRecipes.indexOf(r)===-1)usedRecipes.push(r);
-      var ings=(r['Ingredients (Per Pax)']||'').split(',').map(function(s){return '<li>'+sc(s.trim(),n)+'</li>';}).join('');
+      var ings=(r['Ingredients (Per Pax)']||'').split(',').map(function(raw){
+        var s=raw.trim(); if(!s)return '';
+        // Handle range: "5-8 Crackers" -> "5 Crackers"
+        var s2=s.replace(/^([\d.]+)\s*-\s*\d+\s+/,'$1 ');
+        var scaled=sc(s2,n);
+        // Try package conversion using inventory
+        var mv=findInv(s2);
+        if(mv){
+          var pkg=toPkgQty(s2,scaled,mv);
+          var cname=s2.replace(/^[\d.\/]+\s*(oz|lbs?|cups?|tbsp|tsp|cans?|bunches?|cloves?|bags?|scoops?|slices?|loaves?|pints?|quarts?|dozen|each|lb)\s*/i,'').replace(/^[\d.]+\s+/,'').trim();
+          if(cname) return '<li>'+pkg+' '+cname+'</li>';
+        }
+        return '<li>'+scaled+'</li>';
+      }).join('');
       var mods=[];
       if((dfs['Gluten Intolerance']||dfs['Celiac'])&&r['GF?']!=='Yes'&&r['GF Swap?']&&r['GF Swap?']!=='N/A')mods.push('GF: '+r['GF Swap?']);
       if(dfs['Vegan']&&r['Vegan?']!=='Yes'&&r['Vegan Swap?']&&r['Vegan Swap?']!=='N/A')mods.push('Vegan: '+r['Vegan Swap?']);
