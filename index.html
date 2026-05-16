@@ -1212,10 +1212,11 @@ function buildPacket(id,trip,gs,plan){
       var scaled = sc(ing2, n);
       // For items with no inventory match, show scaled qty cleanly
       var pkgQty = mv ? toPkgQty(ing2, scaled, mv) : scaled;
-      // Skip tiny garnish/condiment items that have no pkg match (Basil leaves, etc)
+      // Skip tiny garnish items that have no inventory match
       if(!mv && !isGuide) {
         var qty0 = parseFloat(scaled);
-        if(!isNaN(qty0) && qty0 < 1 && !/oz|lb|cup/i.test(scaled)) return; // skip if <1 count with no unit
+        // Skip low-count items with no unit (garnishes like "30 Basil Leaves")
+        if(!isNaN(qty0) && !/oz|lb|cup|kg|ml/i.test(scaled)) return;
       }
 
       if(isGuide){
