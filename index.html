@@ -320,69 +320,32 @@ function extractDate(text){
 }
 
 function parseFlybookRoster(text){
-  // Definitive parser — tested against real Flybook PDFs
-  // Handles both space-preserved (pasted) and space-stripped (PDF binary) formats
+  var BAD={'n/a':1,'no':1,'none':1,'nope':1,'':1,'n':1,'na':1,'n/':1};
+  function isBad(v){return !!BAD[(v||'').toLowerCase().trim()];}
+  function clean(v){return (v||'').trim().replace(/^\?\s*/,'').trim();}
+  function norm(s){return (s||'').toLowerCase().replace(/[^a-z0-9]/g,'');}
+  function spaceCaps(s){return (s||'').replace(/([a-z])([A-Z])/g,'$1 $2').replace(/([A-Z]+)([A-Z][a-z])/g,'$1 $2');}
 
-  var BAD = {'n/a':1,'no':1,'none':1,'nope':1,'':1,'n':1,'na':1};
-  function bad(s){ return !!BAD[(s||'').toLowerCase().trim()]; }
-  function norm(s){ return (s||'').toLowerCase().replace(/[^a-z0-9]/g,''); }
-  function spaceCaps(s){ return s.replace(/([a-z])([A-Z])/g,'$1 $2').replace(/([A-Z]+)([A-Z][a-z])/g,'$1 $2'); }
-
-  // ── Extract reservation groups (have spaces preserved) ──────────
-  // "James T Chapman - JPCWOW - 4 Guest(s)"
-  var groups = [];
-  var groupRe = /^([A-Za-z].+?) - ([A-Z0-9]+) - (\d+) Guest/gm;
-  var gm;
-  while((gm=groupRe.exec(text))!==null){
-    groups.push({name:gm[1].trim(), code:gm[2], count:parseInt(gm[3]), guests:[]});
-  }
-
-  // ── Extract clients (space-stripped in PDF) ─────────────────────
-  // "JamesChapman-Email:x-Phone:x-Age:x"
-  var clientRe = /([A-Za-z][a-zA-Z]+)-Email:([^\s]+)-Phone:([^\s]+)-Age:(\d+)/g;
+  // Step 1: Extract clients from "Name - Email: x - Phone: x - Age: x" (spaced or merged)
   var clients=[], byEmail={}, byNorm={};
+  var cRe=/([A-Za-z][a-zA-Z ]*?)\s*-\s*Email:\s*(\S+)\s*-\s*Phone:\s*(\S+)\s*-\s*Age:\s*(\d+)/g;
   var cm;
-  while((cm=clientRe.exec(text))!==null){
-    var c={rawName:cm[1],email:cm[2],phone:cm[3]==='N/A'?'':cm[3],age:cm[4]};
-    // Find proper spaced name by matching to group names
-    c.properName = spaceCaps(c.rawName); // default
-    groups.forEach(function(g){
-      var gparts=g.name.split(' ');
-      var last=norm(gparts[gparts.length-1]);
-      if(last.length>2 && norm(c.rawName).indexOf(last)>-1){
-        // This client belongs to this group — use individual name from rawName
-        c.properName = spaceCaps(c.rawName);
-      }
-    });
+  while((cm=cRe.exec(text))!==null){
+    var c={name:cm[1].trim(),email:cm[2].trim(),phone:cm[3]==='N/A'?'':cm[3].trim(),age:cm[4]};
     clients.push(c);
     byEmail[c.email.toLowerCase()]=c;
-    byNorm[norm(c.rawName)]=c;
+    byNorm[norm(c.name)]=c;
   }
 
-  // Also handle spaced format: "First Last - Email: x - Phone: x - Age: x"
-  var spacedRe = /([A-Za-z][a-zA-Z ]+?)\s*-\s*Email:\s*(\S+)\s*-\s*Phone:\s*(\S+)\s*-\s*Age:\s*(\d+)/g;
-  while((cm=spacedRe.exec(text))!==null){
-    var email=cm[2].trim().toLowerCase();
-    if(!byEmail[email]){
-      var c={rawName:cm[1].trim(),properName:cm[1].trim(),email:cm[2].trim(),phone:cm[3].trim()==='N/A'?'':cm[3].trim(),age:cm[4]};
-      clients.push(c);
-      byEmail[email]=c;
-      byNorm[norm(c.rawName)]=c;
-    } else {
-      // Update with proper spaced name
-      byEmail[email].properName=cm[1].trim();
-    }
-  }
-
-  // ── Q block key definitions ─────────────────────────────────────
-  var QKEYS=[
+  // Step 2: Q&A label definitions (merged PDF format + spaced pasted format)
+  var LABELS=[
     ['EmailAddressMustBeProvided','Email Address Must Be Provided','email'],
     ['CommonDietaryRestrictions','Common Dietary Restrictions','diet'],
     ['OtherDietaryRestrictions','Other Dietary Restrictions','dietOther'],
     ['Age','Age','age'],
     ['HeightinInches','Height in Inches','height'],
     ['WeightinPounds','Weight in Pounds','weight'],
-    ['Willyouneedasleepingbagandpad?','Will you need a sleeping bag and pad?','sleepingBag'],
+    ['Willyouneedasleepingbagandpad?','Will you need a sleeping bag and pad?','sb'],
     ['TentNeeds','Tent Needs','tent'],
     ['MedicalConditions','Medical Conditions','medical'],
     ['TravelCompanions','Travel Companions','companions'],
@@ -390,50 +353,83 @@ function parseFlybookRoster(text){
     ['CustomerSource','Customer Source','source']
   ];
 
-  // ── Split on ReservationQuestions ──────────────────────────────
-  var sections=text.split(/Reservation\s*Questions|ReservationQuestions/);
-  var used={};
+  function parseBlock(lines){
+    var qa={};
+    lines.forEach(function(line){
+      line=line.trim();
+      for(var i=0;i<LABELS.length;i++){
+        var merged=LABELS[i][0],spaced=LABELS[i][1],field=LABELS[i][2];
+        var val=null;
+        if(line.indexOf(spaced)===0) val=line.substring(spaced.length);
+        else if(line.indexOf(merged)===0) val=line.substring(merged.length);
+        if(val!==null){
+          var v=clean(val);
+          if(!isBad(v)&&!qa[field]) qa[field]=v;
+          break;
+        }
+      }
+    });
+    return qa;
+  }
 
-  function findClient(bnorm, email){
+  // Step 3: Split on "Reservation Questions"
+  var sections=text.split(/Reservation\s*Questions/i);
+  var used={};
+  var guests=[];
+
+  // All Q label prefixes for filtering
+  var qPrefixes=[];
+  LABELS.forEach(function(l){qPrefixes.push(l[0]);qPrefixes.push(l[1]);});
+
+  function findClient(blockName, email){
+    // 1. Email match (most reliable)
     if(email&&byEmail[email.toLowerCase()]&&!used[email.toLowerCase()]){
       var c=byEmail[email.toLowerCase()]; used[c.email.toLowerCase()]=true; return c;
     }
-    if(bnorm&&byNorm[bnorm]&&!used[byNorm[bnorm].email.toLowerCase()]){
-      var c=byNorm[bnorm]; used[c.email.toLowerCase()]=true; return c;
+    // 2. Exact normalized name
+    var k=norm(blockName);
+    if(k&&byNorm[k]&&!used[byNorm[k].email.toLowerCase()]){
+      var c=byNorm[k]; used[c.email.toLowerCase()]=true; return c;
     }
-    // Try partial norm match
+    // 3. Space-insert merged names: "DagMartensson" -> "Dag Martensson"
+    var spaced=spaceCaps(blockName).split(/\s+/);
+    var first=norm(spaced[0]||''), last=norm(spaced[spaced.length-1]||'');
     var found=null;
-    Object.keys(byNorm).forEach(function(k){
-      if(!found&&k.length>3&&(k.indexOf(bnorm)>-1||bnorm.indexOf(k)>-1)&&!used[byNorm[k].email.toLowerCase()]){
-        found=byNorm[k];
-      }
+    Object.keys(byNorm).forEach(function(k2){
+      if(!found&&!used[byNorm[k2].email.toLowerCase()]&&first.length>1&&last.length>2&&k2.indexOf(first)>-1&&k2.indexOf(last)>-1)
+        found=byNorm[k2];
+    });
+    if(!found) Object.keys(byNorm).forEach(function(k2){
+      if(!found&&!used[byNorm[k2].email.toLowerCase()]&&last.length>2&&k2.indexOf(last)>-1)
+        found=byNorm[k2];
     });
     if(found){used[found.email.toLowerCase()]=true;return found;}
-    // Next unused
+    // 4. Next unused client
     for(var i=0;i<clients.length;i++){
       if(!used[clients[i].email.toLowerCase()]){used[clients[i].email.toLowerCase()]=true;return clients[i];}
     }
     return null;
   }
 
-  var guests=[];
-
   sections.slice(1).forEach(function(section){
     var lines=section.split('\n').map(function(l){return l.trim();}).filter(Boolean);
     var bstarts=[];
+
     lines.forEach(function(line,i){
-      // Must have a dash-capital pattern (guest block header)
-      if(!/-[A-Z]/.test(line)&&!/\s-\s[A-Z]/.test(line)) return;
+      // Must have dash-name structure
+      if(!/\s-\s[A-Z]/.test(line)&&!/-[A-Z][a-zA-Z]/.test(line)) return;
       // Exclude client info lines
       if(/Email:|Phone:|@/.test(line)) return;
-      // Exclude reservation header lines like "IDUCNJ - 2 Guest(s)" or "James T Chapman - JPCWOW - 4 Guest(s)"
-      if(/- \d+ Guest|Guest\(s\)/.test(line)) return;
-      // Exclude lines with reservation codes (all-caps 4-6 char code)
-      if(/- [A-Z]{4,6} -/.test(line)) return;
-      // Exclude known Q answer lines (both merged and spaced)
-      if(/^(Age\s+\d|HeightinInches|WeightinPounds|Height in|Weight in|CommonDiet|OtherDiet|Common Diet|Other Diet|Willyou|Will you|TentNeeds|Tent Needs|MedicalCond|Medical Cond|InternalNotes|Internal Notes|TravelComp|Travel Comp|CustomerSource|Customer Source|EmailAddress|Email Address|Signed|Products|Sleeping|Name\s+Email|Paddlers?|Staff|Admin)/.test(line)) return;
-      // Exclude lines that are just "N-Paddlers" or "N-Something"
-      if(/^\d+\s*-/.test(line)) return;
+      // Exclude reservation headers: "Name - CODE - N Guest(s)"
+      if(/-\s*[A-Z]{3,8}\s*-\s*\d+\s*Guest|Guest\(s\)/i.test(line)) return;
+      // Exclude paddler/staff count lines
+      if(/^\d+\s*-\s*(Paddler|Staff|Admin)/i.test(line)) return;
+      // Exclude Q&A lines
+      var isQ=false;
+      for(var pi=0;pi<qPrefixes.length;pi++){if(line.indexOf(qPrefixes[pi])===0){isQ=true;break;}}
+      if(isQ) return;
+      // Exclude waiver/product lines
+      if(/^(Signed|Products|Sleeping Kit|Name\s+Email|Waiver)/i.test(line)) return;
       bstarts.push(i);
     });
 
@@ -442,61 +438,36 @@ function parseFlybookRoster(text){
       var header=lines[si];
       var block=lines.slice(si+1,ei);
 
-      // Extract name from header — text after last dash
-      var bname='';
-      // Spaced: "Trip Name - Guest Name"
+      // Extract name from header
+      var blockName='';
       var m1=header.match(/\s-\s(.+)$/);
       if(m1){
-        bname=m1[1].trim().replace(/^Guest\s*#\d+\s*/i,'').replace(/\s*Name$/i,'').trim();
+        blockName=m1[1].trim()
+          .replace(/^Guest\s*#\d+\s*/i,'')
+          .replace(/\s*Name$/i,'').trim();
       } else {
-        // Merged: "TripName-GuestName"
         var m2=header.match(/-([A-Z][a-zA-Z]+(?:[A-Z][a-zA-Z]+)*)$/);
-        if(m2) bname=m2[1];
+        if(m2) blockName=m2[1];
       }
-      var bnorm=norm(bname);
+      if(!blockName||/^(Paddler|Staff|Admin|\d)/i.test(blockName)) return;
 
-      // Skip false positives
-      if(!bname||/^(Paddlers?|Staff|Admin)$/i.test(bname)) return;
+      var qa=parseBlock(block);
+      var email=(qa.email||'').toLowerCase();
+      var client=findClient(blockName,email);
+      var name=client?client.name:spaceCaps(blockName);
 
-      // Parse Q&A
-      var qa={};
-      block.forEach(function(line){
-        for(var ki=0;ki<QKEYS.length;ki++){
-          var merged=QKEYS[ki][0],spaced=QKEYS[ki][1],field=QKEYS[ki][2];
-          var val=null;
-          if(line.indexOf(merged)===0) val=line.substring(merged.length).trim().replace(/^\?\s*/,'');
-          else if(line.indexOf(spaced)===0) val=line.substring(spaced.length).trim().replace(/^\?\s*/,'');
-          if(val!==null&&!bad(val)&&!qa[field]){qa[field]=val;break;}
-        }
-      });
+      // Decode SB
+      var sbRaw=qa.sb||'';
+      var sb=/renting|rental/i.test(sbRaw)?'Rental':/own|bringing|personal/i.test(sbRaw)?'Own':sbRaw.substring(0,40);
 
-      // Match to client
-      var email=qa.email?qa.email.toLowerCase():'';
-      var client=findClient(bnorm,email);
-
-      // Determine proper name
-      var name=client?client.properName:spaceCaps(bname);
-      if(!name||name.length<2) return;
-
-      // Decode SB and tent
-      var sb=(qa.sleepingBag||'').toLowerCase();
-      var sbFlag='';
-      if(/renting|rental/.test(sb)) sbFlag='Rental';
-      else if(/own|bringing|personal/.test(sb)) sbFlag='Own';
-      else if(sb) sbFlag=qa.sleepingBag.substring(0,40);
-
-      var tn=(qa.tent||'').toLowerCase();
-      var tentFlag='';
-      if(/provided|outdoor odysseys/.test(tn)) tentFlag='OO Tent';
-      else if(/personal|own|bring/.test(tn)) tentFlag='Own Tent';
-      else if(tn) tentFlag=qa.tent.substring(0,40);
+      // Decode tent
+      var tentRaw=qa.tent||'';
+      var tent=/provided|outdoor odysseys/i.test(tentRaw)?'OO Tent':/personal|own|bring/i.test(tentRaw)?'Own Tent':tentRaw.substring(0,40);
 
       // Clean diet
-      var diet=qa.diet||'NONE';
+      var diet=qa.diet||'None';
       if(diet.toUpperCase()==='NONE') diet='None';
-      // Insert spaces in merged dietary values: "GlutenIntolerance" -> "Gluten Intolerance"
-      diet=spaceCaps(diet);
-      var dietOther=spaceCaps(qa.dietOther||'');
+      else diet=spaceCaps(diet);
 
       guests.push({
         name:name,
@@ -506,11 +477,13 @@ function parseFlybookRoster(text){
         height:qa.height||'',
         weight:qa.weight||'',
         diet:diet,
-        dietOther:dietOther,
+        dietCommon:diet,
+        dietOther:spaceCaps(qa.dietOther||''),
         medical:spaceCaps(qa.medical||''),
-        sleepingBag:sbFlag,
-        tent:tentFlag,
+        sleepingBag:sb,
+        tent:tent,
         companions:qa.companions||'',
+        notes:qa.notes||'',
         source:qa.source||''
       });
     });
