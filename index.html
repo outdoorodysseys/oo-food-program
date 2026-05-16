@@ -1212,12 +1212,12 @@ function buildPacket(id,trip,gs,plan){
       var scaled = sc(ing2, n);
       // For items with no inventory match, show scaled qty cleanly
       var pkgQty = mv ? toPkgQty(ing2, scaled, mv) : scaled;
-      // Skip tiny garnish items that have no inventory match
-      if(!mv && !isGuide) {
-        var qty0 = parseFloat(scaled);
-        // Skip low-count items with no unit (garnishes like "30 Basil Leaves")
-        if(!isNaN(qty0) && !/oz|lb|cup|kg|ml/i.test(scaled)) return;
-      }
+      // Skip garnish/count items with no weight/volume unit (e.g. "30 Basil Leaves", "10 Crackers")
+      var scaledHasUnit = /oz|lb|cup|kg|ml|tsp|tbsp/i.test(scaled);
+      var qty0 = parseFloat(scaled);
+      if(!isNaN(qty0) && !scaledHasUnit && !mv) return;
+      // Also skip if match is clearly wrong (matched a prep-category item for a garnish)
+      if(!isNaN(qty0) && !scaledHasUnit && mv && (mv['Procurement Location']||'').toLowerCase().indexOf('prep') > -1) return;
 
       if(isGuide){
         if(!guideList.some(function(i){return i.name===cleanName;}))
