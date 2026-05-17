@@ -465,7 +465,8 @@ function processPDFText(text, statusEl){
   var endTime = endDateMatch
     ? new Date(endDateMatch[1]).toISOString()
     : new Date(new Date(startTime).getTime()+3*86400000).toISOString();
-  var trip = {id:tripId,activityId:tripId,activityName:tripName,startTime:startTime,endTime:endTime,numberGoing:guests.length};
+  var tripNotesObj = extractTripNotes(text);
+  var trip = {id:tripId,activityId:tripId,activityName:tripName,startTime:startTime,endTime:endTime,numberGoing:guests.length,notes:tripNotesObj.notes,clientNotes:tripNotesObj.clientNotes};
   // Always clear prior imported rosters — prevents stale data from persisting
   S.allTrips = S.allTrips.filter(function(t){return !String(t.id).startsWith('pdf_');});
   S.allTrips.unshift(trip);
@@ -494,6 +495,15 @@ function processPDFText(text, statusEl){
 function extractTripName(text){
   var m=text.match(/^(.+?)\s*-\s*\d+\s*Guest/m)||text.match(/^(.{10,80}(?:Tour|Trip|Kayak|Camp|Island)[^\n]*)/m);
   return m?m[1].trim():null;
+}
+function extractTripNotes(text){
+  // Extract "Notes:" and "Client Notes:" blocks from PDF header
+  var notes='', clientNotes='';
+  var nm=text.match(/(?:^|\n)Notes:\s*\n([\s\S]*?)(?=\n(?:Client Notes:|Created By:|\S.*-\s*\d+\s*Guest|Reservation Questions|$))/i);
+  if(nm){var v=nm[1].trim();if(v&&v.toLowerCase()!=='none set'&&v.toLowerCase()!=='none')notes=v;}
+  var cnm=text.match(/(?:^|\n)Client Notes:\s*\n([\s\S]*?)(?=\n(?:Notes:|Created By:|\S.*-\s*\d+\s*Guest|Reservation Questions|$))/i);
+  if(cnm){var cv=cnm[1].trim();if(cv&&cv.toLowerCase()!=='none set'&&cv.toLowerCase()!=='none')clientNotes=cv;}
+  return {notes:notes,clientNotes:clientNotes};
 }
 function extractDate(text){
   var m=text.match(/(\d{1,2}\/\d{1,2}\/\d{4})/)||text.match(/([A-Z][a-z]+ \d{1,2},?\s*\d{4})/);
@@ -1245,7 +1255,11 @@ function buildPacket(id,trip,gs,plan){
     rrows='<tr><td colspan="7" style="color:var(--muted);font-style:italic;padding:16px">No guest data — paste or upload the Flybook roster PDF</td></tr>';
   }
 
-  var roster='<div class="sb"><div class="sh">&#x1F465; Guest Roster &mdash; '+n+' Guests</div>'+ah
+  // Trip notes from PDF header
+  var notesHtml='';
+  if(trip.clientNotes){notesHtml+='<div class="al" style="background:#f0f9ff;border-color:#bae6fd;margin-bottom:8px"><strong>&#x1F4CB; Guide Notes:</strong> '+trip.clientNotes.replace(/\n/g,' ')+'</div>';}
+  if(trip.notes){notesHtml+='<div class="al" style="background:#fafafa;border-color:#ccc;margin-bottom:8px"><strong>Notes:</strong> '+trip.notes.replace(/\n/g,' ')+'</div>';}
+  var roster='<div class="sb"><div class="sh">&#x1F465; Guest Roster &mdash; '+n+' Guests</div>'+notesHtml+ah
     +'<table class="rt"><thead><tr>'
     +'<th>Name / Phone</th><th>Ht / Wt</th><th>Age</th><th>Dietary</th><th>Medical</th><th>Sleeping</th><th>Tent</th>'
     +'</tr></thead><tbody>'+rrows+'</tbody></table></div>';
