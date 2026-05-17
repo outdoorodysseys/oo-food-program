@@ -387,11 +387,24 @@ function processPastedRoster(){
   var ta = document.getElementById('paste-roster');
   if(!ta||!ta.value.trim()){alert('Paste roster text first');return;}
   var statusEl = document.getElementById('paste-status');
-  processPDFText(ta.value, statusEl);
+  // Normalize line endings before parsing (handles Windows 
+, old Mac 
+)
+  var text = ta.value.replace(/
+/g,"
+").replace(/
+/g,"
+");
+  processPDFText(text, statusEl);
   if(statusEl.textContent.indexOf('Imported')>-1) ta.value='';
 }
 
 function processPDFText(text, statusEl){
+  // Normalize line endings before parsing
+  text = text.replace(/
+/g,"
+").replace(//g,"
+");
   var guests = parseFlybookRoster(text);
   if(!guests.length){
     statusEl.textContent = 'Could not find guests. Check the text is from a Flybook roster.';
@@ -443,6 +456,16 @@ function extractDate(text){
 }
 
 function parseFlybookRoster(text){
+  // Normalize line endings (Windows 
+, old Mac 
+, Unicode line sep)
+  text = text.replace(/
+/g, "
+").replace(/
+/g, "
+").replace(/ /g, "
+").replace(/ /g, "
+");
   var BAD={'n/a':1,'no':1,'none':1,'nope':1,'':1,'n':1,'na':1,'n/':1};
   function isBad(v){return !!BAD[(v||'').toLowerCase().trim()];}
 
