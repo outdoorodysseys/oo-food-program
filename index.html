@@ -88,49 +88,84 @@ body{font-family:Arial,sans-serif;background:var(--cream);color:var(--ink)}
   .content{overflow:visible!important}
   .no-print{display:none!important}
 
-  /* Page structure */
+  /* ── Page structure ── */
   .print-pg1-end{break-after:page}
   .print-menu{break-before:page}
   .print-shopping{break-before:page}
-  .ph{break-inside:avoid;break-after:avoid}
   .day-hdr{break-after:avoid;break-inside:avoid}
   .db,.mc{break-inside:avoid}
-  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 
-  /* ── Roster: compact for print ── */
-  .rt{font-size:10px;width:100%}
-  .rt th{font-size:8px;padding:4px 6px}
-  .rt td{padding:4px 6px;font-size:10px}
-  .rt td div{font-size:10px}
+  /* Remove outer container border — can't close cleanly at page breaks */
+  .pb > div{border:none!important;border-radius:0!important}
+  .pb > div > div[style*="padding:18px"]{padding:0!important}
+
+  /* ── Trip header: white bg, border bottom instead of solid bg ── */
+  .ph{break-inside:avoid;break-after:avoid;
+    background:#fff!important;color:#000!important;
+    border-bottom:2pt solid #000;padding:8px 0 6px 0;margin-bottom:8px}
+  .ph .pt{color:#000!important;font-size:14pt}
+  .ph .pm{color:#444!important}
+  .ph .pm span{color:#444!important}
+
+  /* ── Roster: ink-friendly ── */
+  .rt{font-size:9px;width:100%}
+  .rt th{background:#fff!important;color:#000!important;font-size:8px;padding:3px 6px;
+    border-bottom:1pt solid #000;border-top:1pt solid #000}
+  .rt td{padding:3px 6px;font-size:9px;background:#fff!important}
+  .rt td div{font-size:9px}
   .rt td div:first-child{font-weight:700}
-  /* Group header rows */
-  .rt td[colspan]{font-size:9px;padding:3px 8px}
-  /* Dietary/SB/tent badges */
-  .fl{font-size:8px;padding:1px 3px}
+  .rt td[colspan]{background:#f5f5f5!important;color:#000!important;font-size:8px;padding:2px 8px;font-weight:700}
+  .rt tr:nth-child(even) td{background:#f9f9f9!important}
 
-  /* ── Gear summary: compact ── */
-  .sb{padding:6px 0}
-  .sh{font-size:11px;margin-bottom:5px;padding-bottom:3px}
-  /* Gear boxes: side by side, smaller */
+  /* Dietary badges: outline style instead of colored bg */
+  .fl{font-size:8px;padding:1px 3px;background:#fff!important;border:0.5pt solid #aaa;color:#000!important}
+  .fd{border-color:#c00!important;color:#c00!important}
+
+  /* ── Alert banner: light ── */
+  .al{font-size:9px;padding:4px 8px;margin-bottom:6px;background:#fff!important;border:0.5pt solid #999}
+
+  /* ── Section headings: no bg ── */
+  .sh{font-size:11px;font-weight:700;color:#000!important;margin-bottom:5px;padding-bottom:3px;border-bottom:1pt solid #000}
+  .sb{padding:6px 0;border-bottom:0.5pt solid #ddd}
+  .sb:last-child{border-bottom:none}
+
+  /* ── Gear summary: clean ── */
   .sb div[style*="grid-template-columns:1fr 1fr"]{gap:6px;margin-bottom:6px}
-  .sb div[style*="grid-template-columns:1fr 1fr"] > div{padding:6px 8px}
-  .sb div[style*="font-size:22px"]{font-size:16px!important}
-  .sb div[style*="font-size:20px"]{font-size:16px!important}
-  .sb div[style*="font-size:12px;color:var(--muted);margin-top"]{font-size:9px!important}
-  .sb div[style*="font-size:11px;color:var(--muted)"]{font-size:9px!important}
-  .al{font-size:9px;padding:5px 8px;margin-bottom:6px}
+  .sb div[style*="grid-template-columns:1fr 1fr"] > div{padding:5px 8px;border:0.5pt solid #ccc;background:#fff!important}
+  .sb div[style*="font-size:22px"]{font-size:14px!important;color:#000!important}
+  .sb div[style*="font-size:20px"]{font-size:14px!important;color:#000!important}
+  .sb div[style*="font-size:12px;color:var(--muted);margin-top"]{font-size:8px!important}
+  .sb div[style*="font-size:11px;color:var(--muted)"]{font-size:8px!important}
 
-  /* ── Shopping list: compact, 3-column ── */
+  /* ── Meal cards: no dark headers ── */
+  .mc{border:0.5pt solid #ccc!important;break-inside:avoid;margin-bottom:8px}
+  .mch{background:#fff!important;border-bottom:0.5pt solid #ccc!important;padding:5px 10px}
+  .mcn{color:#000!important}
+  .mck{background:#fff!important;color:#000!important;border:0.5pt solid #000;font-size:8px}
+  .day-hdr{background:#fff!important;color:#000!important;border-bottom:1pt solid #000;
+    font-weight:700;padding:5px 10px!important;font-size:11px}
+
+  /* ── Shopping list: compact, 3-col, ink-friendly ── */
   .print-shopping .sl-grid{grid-template-columns:1fr 1fr 1fr!important;gap:2px}
-  .print-shopping .sl-item{padding:3px 5px;font-size:9px}
-  .print-shopping .sl-qty{font-size:9px;min-width:35px}
-  .print-shopping .sl-hdr{font-size:8px;padding:3px 8px}
+  .print-shopping .sl-item{padding:3px 5px;font-size:9px;background:#fff!important}
+  .print-shopping .sl-qty{font-size:9px;min-width:35px;color:#000!important}
+  .print-shopping .sl-hdr{font-size:8px;padding:3px 8px;background:#fff!important;
+    color:#000!important;border-bottom:0.5pt solid #999}
   .print-shopping .sl-sec{margin-bottom:8px}
-  .print-shopping .sh{font-size:11px}
+  .print-shopping .sh{font-size:11px;color:#000!important}
   .print-shopping .sb{padding:4px 0}
   .print-shopping div[style*="font-size:11px;color:var(--muted);margin-bottom"]{font-size:8px;margin-bottom:4px!important}
-  /* Receipt instruction */
-  .print-shopping div[style*="background:#eff6ff"]{padding:4px 6px;font-size:8px}
+  .print-shopping div[style*="background:#eff6ff"]{padding:4px 6px;font-size:8px;background:#fff!important;border:0.5pt solid #999}
+  .print-shopping .sl-gp{background:#fff!important;color:#000!important;border:0.5pt solid #999}
+
+  /* ── Ingredients list ── */
+  .il li{color:#000!important}
+  .nt{background:#f9f9f9!important;color:#333!important}
+  .md{background:#fff!important;border:0.5pt solid #999;color:#333!important}
+
+  /* Force all text black, backgrounds white */
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  p,span,div,li,td,th{color:#000}
 }
 </style>
 </head>
