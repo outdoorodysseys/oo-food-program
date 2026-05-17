@@ -654,10 +654,16 @@ function parseFlybookRoster(text){
         var m2=header.match(/-([A-Z][a-zA-Z]+(?:[A-Z][a-zA-Z]+)*)$/);
         if(m2) blockName=m2[1];
       }
-      if(!blockName||/^(Paddler|Staff|Admin|\d)/i.test(blockName)) return;
-
       var qa=parseBlock(block);
       var email=(qa.email||'').toLowerCase();
+      // If blockName is empty (e.g. "Guest #1 Name" -> stripped to ""), match by email only
+      if(!blockName||/^(Paddler|Staff|Admin|\d)/i.test(blockName)){
+        if(!email) return;
+        // Try to find client by email
+        var cemail=byEmail[email];
+        if(!cemail) return; // can't identify guest at all
+        blockName=cemail.name;
+      }
       var client=findClient(blockName,email);
       var name=client?client.name:spaceCaps(blockName);
 
@@ -670,9 +676,14 @@ function parseFlybookRoster(text){
         var mft=h.match(/^(\d+)\s*[-]?\s*ft[.,]?\s*(\d+)\s*[-]?\s*in/i);
         if(mft) h=mft[1]+"'"+mft[2]+'"';
         else {
-          // "5ft7in" or "5ft" only
-          var mft2=h.match(/^(\d+)\s*ft\s*(\d+)?/i);
-          if(mft2) h=mft2[1]+"'"+(mft2[2]?mft2[2]+'"':'');
+          // "5 feet 11 inches" or "5feet11inches"
+          var mfeet=h.match(/^(\d+)\s*feet?\s*(\d+)?\s*in/i);
+          if(mfeet) h=mfeet[1]+"'"+(mfeet[2]?mfeet[2]+'"':'');
+          else {
+            // "5ft7in" or "5ft" only
+            var mft2=h.match(/^(\d+)\s*ft\s*(\d+)?/i);
+            if(mft2) h=mft2[1]+"'"+(mft2[2]?mft2[2]+'"':'');
+          }
         }
         qa.height=h.trim();
       }
