@@ -358,8 +358,26 @@ function handlePDFUpload(input){
       var pagePromises = [];
       for(var p=1;p<=pdf.numPages;p++){
         pagePromises.push(pdf.getPage(p).then(function(page){
-          return page.getTextContent().then(function(tc){
-            return tc.items.map(function(i){return i.str;}).join('\n');
+          return page.getTextContent({includeMarkedContent:false}).then(function(tc){
+            // Reconstruct lines using position data — items on same Y = same line
+            var lines = [];
+            var currentLine = [];
+            var lastY = null;
+            var YTOL = 3; // pixels tolerance for same line
+            tc.items.forEach(function(item){
+              if(!item.str) return;
+              var y = item.transform ? Math.round(item.transform[5]) : 0;
+              if(lastY === null) lastY = y;
+              if(Math.abs(y - lastY) > YTOL) {
+                // New line
+                if(currentLine.length) lines.push(currentLine.join(' ').trim());
+                currentLine = [];
+                lastY = y;
+              }
+              currentLine.push(item.str);
+            });
+            if(currentLine.length) lines.push(currentLine.join(' ').trim());
+            return lines.filter(Boolean).join('\n');
           });
         }));
       }
@@ -403,7 +421,8 @@ function processPDFText(text, statusEl){
   // Normalize line endings before parsing
   text = text.replace(/
 /g,"
-").replace(//g,"
+").replace(/
+/g,"
 ");
   var guests = parseFlybookRoster(text);
   if(!guests.length){
