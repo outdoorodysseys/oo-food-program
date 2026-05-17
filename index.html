@@ -381,8 +381,14 @@ function processPDFText(text, statusEl){
   var dateStr = extractDate(text);
   var tripId = 'pdf_'+Date.now();
   var startTime = dateStr || new Date().toISOString();
-  var endTime = new Date(new Date(startTime).getTime()+3*86400000).toISOString();
+  // Extract end date from roster text for accurate day count
+  var endDateMatch = text.match(/\d+\/\d+\/\d{4}\s+\d+:\d+:\d+\s+[AP]M\s+-\s+(\d+\/\d+\/\d{4})/);
+  var endTime = endDateMatch
+    ? new Date(endDateMatch[1]).toISOString()
+    : new Date(new Date(startTime).getTime()+3*86400000).toISOString();
   var trip = {id:tripId,activityId:tripId,activityName:tripName,startTime:startTime,endTime:endTime,numberGoing:guests.length};
+  // Always clear prior imported rosters — prevents stale data from persisting
+  S.allTrips = S.allTrips.filter(function(t){return !String(t.id).startsWith('pdf_');});
   S.allTrips.unshift(trip);
   S.tripData[tripId] = {trip:trip, guests:guests};
   var days = getDays(trip);
