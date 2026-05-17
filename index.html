@@ -1002,7 +1002,7 @@ function autoAssignMeals(id) {
       used[dinner['Recipe Name']] = true;
       // If dinner has a paired appetizer, assign it (for days > 0)
       var paired = dinner['Pairs With Appetizer'];
-      if (paired && paired.trim() && !used[paired.trim()] && d > 0) {
+      if (paired && paired.trim() && !used[paired.trim()] && d > 0 && d < days-1) {
         plan[d]['Appetizer'] = paired.trim();
         used[paired.trim()] = true;
       }
@@ -1025,7 +1025,7 @@ function autoAssignMeals(id) {
     for (var d = 0; d < days; d++) {
       // Skip rules
       if (d === 0 && mt === 'Breakfast') continue;
-      if (d === days-1 && (mt === 'Dinner' || mt === 'Dessert')) continue;
+      if (d === days-1 && (mt === 'Dinner' || mt === 'Dessert' || mt === 'Appetizer')) continue;
       // Skip if already assigned (e.g. Charcuterie on Day 1, paired appetizers)
       if (plan[d][mt]) continue;
 
