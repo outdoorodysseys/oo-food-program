@@ -242,7 +242,7 @@ var S = {allTrips:[],selectedIds:[],tripData:{},recipes:[],inv:[],plans:{},packe
 function log(m,t){var el=document.getElementById('log');var d=document.createElement('div');d.className=t==='err'?'le':t==='ok'?'lo':'';d.textContent='['+new Date().toLocaleTimeString('en',{hour12:false,hour:'2-digit',minute:'2-digit'})+'] '+m;el.prepend(d);}
 function badge(t,tp){var el=document.getElementById('nbadge');el.textContent=t;el.className='nb '+(tp||'warn');}
 function setstep(n){for(var i=1;i<=3;i++){var el=document.getElementById('s'+i);if(!el)return;if(i<n){el.className='step dn';el.querySelector('.sn').textContent='\u2713';}else if(i===n){el.className='step act';el.querySelector('.sn').textContent=i;}else{el.className='step';el.querySelector('.sn').textContent=i;}}}
-function getDays(trip){var ms=new Date(trip.endTime||trip.end)-new Date(trip.startTime||trip.start);return Math.max(1,Math.ceil(ms/(1000*60*60*24)));}
+function getDays(trip){var ms=new Date(trip.endTime||trip.end)-new Date(trip.startTime||trip.start);var d=ms/(1000*60*60*24);return Math.max(1,Number.isInteger(d)?d+1:Math.ceil(d));}
 function getDayLabel(trip,i){var d=new Date(new Date(trip.startTime||trip.start).getTime()+i*86400000);return d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});}
 function fmtDate(ts){return new Date(ts).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});}
 function formatPhone(p) {
@@ -611,7 +611,10 @@ function parseFlybookRoster(text){
         weight:qa.weight||'',
         diet:diet,
         dietCommon:diet,
-        dietOther:spaceCaps(qa.dietOther||''),
+        dietOther:(function(){
+          var d=spaceCaps(qa.dietOther||'').replace(/\.+$/,'').trim();
+          return (d.toLowerCase()==='no'||d.toLowerCase()==='none'||d.toLowerCase()==='n/a'||d.toLowerCase()==='nope'||d==='')?'':d;
+        })(),
         medical:spaceCaps(qa.medical||''),
         sleepingBag:sb,
         tent:tent,
@@ -1075,7 +1078,8 @@ function buildPacket(id,trip,gs,plan){
     if(diet&&diet!=='None'&&diet!=='NONE')
       df+=diet.split(/[|,]/).map(function(d){return '<span class="fl fd">'+d.trim()+'</span>';}).join('');
     var other=g.dietOther||'';
-    if(other&&!bad(other))df+='<span class="fl fn">'+other.substring(0,50)+'</span>';
+    var otherClean=other.replace(/\.+$/,'').trim();
+    if(otherClean&&!bad(otherClean)&&otherClean.toLowerCase()!=='no')df+='<span class="fl fn">'+otherClean.substring(0,50)+'</span>';
     if(!df)df='<span class="fl fo">None</span>';
     var sb=g.sleepingBag||'';
     var tent=g.tent||'';
