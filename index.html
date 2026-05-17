@@ -214,21 +214,13 @@ var APP_VERSION = 'build-18fad95'; // updated each deploy
 // Hard reset: clear state and reload with cache buster
 function hardReset() {
   if (!confirm('Reset the app? This clears all loaded trips and starts fresh.')) return;
+  sessionStorage.removeItem('oo_trips');
   window.location.href = window.location.pathname + '?v=' + Date.now();
 }
 
-// Auto-reload if page was cached (check version param)
-(function(){
-  // Always check if JS is stale — compare embedded build ID to last seen
-  var stored = sessionStorage.getItem('oo_version');
-  if (stored && stored !== APP_VERSION) {
-    // New deploy detected — force hard reload with cache bust
-    sessionStorage.setItem('oo_version', APP_VERSION);
-    window.location.replace(window.location.pathname + '?v=' + Date.now());
-  } else {
-    sessionStorage.setItem('oo_version', APP_VERSION);
-  }
-})();
+// Build version logged for reference (no auto-reload — avoids wiping guest data mid-session)
+// To pick up new deploys: click the Reset button in the nav bar.
+sessionStorage.setItem('oo_version', APP_VERSION);
 
 
 var APPS_SCRIPT = 'https://script.google.com/macros/s/AKfycbwz6PEkFm4GVDhkmlrqYpzkHQJ2gbrL9SCFWknzXHjVvIsITMaCWeyUi11zDcAB2Nrq/exec';
@@ -286,6 +278,20 @@ window.addEventListener('load', function(){
   apiFetch('getRecipes').then(function(r){if(r.success){S.recipes=r.recipes||[];log(S.recipes.length+' recipes','ok');}}).catch(function(){});
   apiFetch('getInventory').then(function(r){if(r.success){S.inv=r.inventory||[];log(S.inv.length+' inv items','ok');}}).catch(function(){});
   apiFetch('getPacketLog').then(function(r){if(r.success)S.packetLog=r.log||[];}).catch(function(){});
+  // Restore any previously imported trips from sessionStorage
+  try {
+    var saved = sessionStorage.getItem('oo_trips');
+    if (saved) {
+      var parsed = JSON.parse(saved);
+      if (parsed.allTrips && parsed.allTrips.length) {
+        S.allTrips = parsed.allTrips;
+        S.tripData = parsed.tripData || {};
+        S.plans = parsed.plans || {};
+        log('Restored '+S.allTrips.length+' trip(s) from session','ok');
+        showTripList();
+      }
+    }
+  } catch(e) {}
   // Try to load upcoming trips from Flybook calendar
   loadUpcomingTrips();
 });
@@ -396,6 +402,14 @@ function processPDFText(text, statusEl){
   for(var i=0;i<days;i++){var day={};MTYPES.forEach(function(t){day[t]='';});S.plans[tripId].push(day);}
   statusEl.textContent = 'Imported '+guests.length+' guests for '+tripName;
   log('PDF: '+guests.length+' guests, '+tripName,'ok');
+  // Persist to sessionStorage so page reloads don't wipe guest data
+  try {
+    sessionStorage.setItem('oo_trips', JSON.stringify({
+      allTrips: S.allTrips,
+      tripData: S.tripData,
+      plans: S.plans
+    }));
+  } catch(e) {}
   showTripList();
   setTimeout(function(){
     var cb=document.getElementById('cb-'+tripId);
