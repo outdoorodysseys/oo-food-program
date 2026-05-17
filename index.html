@@ -475,17 +475,8 @@ function extractDate(text){
 }
 
 function parseFlybookRoster(text){
-  // Normalize line endings (Windows 
-, old Mac 
-, Unicode line sep)
-  text = text.replace(/
-/g, "
-").replace(/
-/g, "
-").replace(/ /g, "
-").replace(/ /g, "
-");
-  var BAD={'n/a':1,'no':1,'none':1,'nope':1,'':1,'n':1,'na':1,'n/':1};
+  text=text.replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+    var BAD={'n/a':1,'no':1,'none':1,'nope':1,'':1,'n':1,'na':1,'n/':1};
   function isBad(v){return !!BAD[(v||'').toLowerCase().trim()];}
 
 
