@@ -165,7 +165,7 @@ body{font-family:Arial,sans-serif;background:var(--cream);color:var(--ink)}
     </div>
     <div id="plan-actions" style="display:none">
       <button class="btn bp" id="gbtn" onclick="generateAll()">&#x26A1; Generate Packets</button>
-      <button class="btn bb no-print" onclick="(function(){var tid=S.selectedIds&&S.selectedIds[0];var trip=tid&&S.tripData[tid]&&S.tripData[tid].trip;if(trip){var d=new Date(trip.startTime);var mon=(d.getMonth()+1);var day=d.getDate();document.title=trip.activityName+' '+mon+'-'+day;}window.print();})();">&#x1F5A8; Print All</button>
+      <button class="btn bb no-print" onclick="(function(){var tid=S.selectedIds&&S.selectedIds[0];var trip=tid&&S.tripData[tid]&&S.tripData[tid].trip;var orig=document.title;if(trip){var d=new Date(trip.startTime);var mon=d.toLocaleString('en',{month:'short'});var day=d.getDate();var n=trip.numberGoing||((S.tripData[tid].guests||[]).length);document.title=trip.activityName.replace(/[^a-zA-Z0-9 ]/g,'').trim()+' - '+mon+' '+day+(n?' ('+n+' guests)':'');}window.print();setTimeout(function(){document.title=orig;},1000);})();">&#x1F5A8; Print All</button>
       <button class="btn bs no-print" onclick="backToList()">&#x2190; Back to Trips</button>
     </div>
     <div><span class="lbl">Log</span><div class="lg" id="log"></div></div>
