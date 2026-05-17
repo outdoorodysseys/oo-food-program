@@ -1216,7 +1216,7 @@ function buildPacket(id,trip,gs,plan){
     var tentBadge=tent==='OO Tent'?'<span class="fl fg">OO Tent</span>':tent==='Own Tent'?'<span class="fl fo">Own Tent</span>':tent?'<span class="fl fn">'+tent.substring(0,20)+'</span>':'&mdash;';
     var med=g.medical&&!bad(g.medical)?g.medical:'&mdash;';
     var extras='';
-    if(g.companions&&!bad(g.companions))extras+='<div style="font-size:10px;color:var(--muted)">&#x1F91D; '+g.companions.substring(0,60)+'</div>';
+    var comp=(g.companions||'').replace(/[.,]$/,'').trim();if(comp&&!bad(comp)&&comp.toLowerCase()!=='no'&&!comp.toLowerCase().startsWith('no,'))extras+='<div style="font-size:10px;color:var(--muted)">&#x1F91D; '+comp.substring(0,60)+'</div>';
     if(g.notes&&!bad(g.notes))extras+='<div style="font-size:10px;color:var(--muted)">&#x1F4DD; '+g.notes.substring(0,80)+'</div>';
     return '<tr style="vertical-align:top">'
       +'<td><div style="font-size:14px;font-weight:700">'+g.name+'</div>'
