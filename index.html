@@ -284,14 +284,28 @@ window.addEventListener('load', function(){
     if (saved) {
       var parsed = JSON.parse(saved);
       if (parsed.allTrips && parsed.allTrips.length) {
-        S.allTrips = parsed.allTrips;
-        S.tripData = parsed.tripData || {};
-        S.plans = parsed.plans || {};
-        log('Restored '+S.allTrips.length+' trip(s) from session','ok');
-        showTripList();
+        // Validate: discard session if guests are missing height/weight (corrupted from old bug)
+        var tripIds = Object.keys(parsed.tripData || {});
+        var valid = tripIds.every(function(tid) {
+          var gs = (parsed.tripData[tid] || {}).guests || [];
+          if (!gs.length) return false;
+          // At least half the guests must have height or weight
+          var populated = gs.filter(function(g){ return g.height || g.weight; }).length;
+          return populated >= Math.ceil(gs.length / 2);
+        });
+        if (valid) {
+          S.allTrips = parsed.allTrips;
+          S.tripData = parsed.tripData || {};
+          S.plans = parsed.plans || {};
+          log('Restored '+S.allTrips.length+' trip(s) from session','ok');
+          showTripList();
+        } else {
+          sessionStorage.removeItem('oo_trips');
+          log('Cleared corrupt session data','ok');
+        }
       }
     }
-  } catch(e) {}
+  } catch(e) { sessionStorage.removeItem('oo_trips'); }
   // Try to load upcoming trips from Flybook calendar
   loadUpcomingTrips();
 });
@@ -974,6 +988,26 @@ function autoAssignMeals(id) {
   }
 
   var used = {};
+
+  // Classic 3-Day Menu default — use when trip is exactly 3 days and all recipes available
+  var CLASSIC = [
+    {Lunch:'Deli Sandwiches', Appetizer:'Charcuterie', Dinner:'Salmon with Pesto Pasta', Dessert:'Apple Crisp'},
+    {Breakfast:'Frittata', Lunch:'Greek Salad', Appetizer:'Caprese Salad', Dinner:'Coconut Red Curry', Dessert:'DO Brownies'},
+    {Breakfast:'Burritos', Lunch:'Mango Tempeh Wrap'}
+  ];
+  if (days === 3) {
+    var classicOk = CLASSIC.every(function(dayMenu){
+      return Object.values(dayMenu).every(function(name){
+        return !!S.recipes.find(function(r){return r['Recipe Name']===name;});
+      });
+    });
+    if (classicOk) {
+      CLASSIC.forEach(function(dayMenu, d){
+        Object.keys(dayMenu).forEach(function(mt){ plan[d][mt]=dayMenu[mt]; used[dayMenu[mt]]=true; });
+      });
+      return; // Classic menu fully assigned
+    }
+  }
 
   // Step 1: Always assign Charcuterie to Day 1 Appetizer
   plan[0]['Appetizer'] = 'Charcuterie';
