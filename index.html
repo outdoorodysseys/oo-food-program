@@ -452,8 +452,20 @@ function parseFlybookRoster(text){
 
   function parseBlock(lines){
     var qa={};
-    lines.forEach(function(line){
-      line=line.trim();
+    // Split any squashed lines (e.g. "FriendWill you need a sleeping bag")
+    var expanded=[];
+    lines.forEach(function(raw){
+      raw=raw.trim(); if(!raw) return;
+      var found=false;
+      for(var j=0;j<LABELS.length;j++){
+        var sp=LABELS[j][1];
+        var idx=raw.indexOf(sp);
+        if(idx>0){ expanded.push(raw.substring(0,idx)); expanded.push(raw.substring(idx)); found=true; break; }
+      }
+      if(!found) expanded.push(raw);
+    });
+    expanded.forEach(function(line){
+      line=line.trim(); if(!line) return;
       for(var i=0;i<LABELS.length;i++){
         var merged=LABELS[i][0],spaced=LABELS[i][1],field=LABELS[i][2];
         var val=null;
@@ -516,7 +528,7 @@ function parseFlybookRoster(text){
 
     lines.forEach(function(line,i){
       // Must have dash-name structure
-      if(!/\s-\s[A-Z]/.test(line)&&!/-[A-Z][a-zA-Z]/.test(line)) return;
+      if(!/\s-\s[A-Za-z]/.test(line)&&!/-[A-Za-z][a-zA-Z]/.test(line)) return;
       // Exclude client info lines
       if(/Email:|Phone:|@/.test(line)) return;
       // Exclude reservation headers: "Name - CODE - N Guest(s)"
@@ -557,6 +569,22 @@ function parseFlybookRoster(text){
 
       // Decode SB
       var sbRaw=qa.sb||'';
+      // Normalize height variants before storing
+      if(qa.height){
+        var h=qa.height;
+        // "6-ft, 2-in" or "6ft 2in" -> "6'2""
+        var mft=h.match(/^(\d+)\s*[-]?\s*ft[.,]?\s*(\d+)\s*[-]?\s*in/i);
+        if(mft) h=mft[1]+"'"+mft[2]+'"';
+        else {
+          // "5ft7in" or "5ft" only
+          var mft2=h.match(/^(\d+)\s*ft\s*(\d+)?/i);
+          if(mft2) h=mft2[1]+"'"+(mft2[2]?mft2[2]+'"':'');
+        }
+        qa.height=h.trim();
+      }
+      // Strip ~ from weight
+      if(qa.weight) qa.weight=qa.weight.replace(/^~\s*/,'').trim();
+
       var sb=/renting|rental/i.test(sbRaw)?'Rental':/own|bringing|personal/i.test(sbRaw)?'Own':sbRaw.substring(0,40);
 
       // Decode tent
