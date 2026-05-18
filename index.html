@@ -1284,7 +1284,7 @@ function buildPacket(id,trip,gs,plan){
       var r=S.recipes.find(function(rc){return rc['Recipe Name']===rname;});if(!r)return;
       if(usedRecipes.indexOf(r)===-1)usedRecipes.push(r);
       var ings=(r['Ingredients (Per Pax)']||'').split(',').map(function(raw){
-        var s=raw.trim(); if(!s)return '';
+        var s=raw.trim().replace(/^~/,''); if(!s)return '';
         // Priority filtering: "2oz Brie (priority 1)" — skip if priority > threshold for group size
         var priMatch=s.match(/\(priority\s*(\d+)\)/i);
         if(priMatch){
@@ -1445,6 +1445,7 @@ function buildPacket(id,trip,gs,plan){
     (r['Ingredients (Per Pax)']||'').split(',').map(function(s){return s.trim();}).forEach(function(ing){
       if(!ing) return;
 
+      ing = ing.replace(/^~/,''); // strip ~ range prefix
       // Priority filtering: skip if (priority N) exceeds group size threshold
       var priM=ing.match(/\(priority\s*(\d+)\)/i);
       if(priM){var pri2=parseInt(priM[1]);var pt=guestCount<4?1:guestCount<8?2:99;if(pri2>pt)return;}
