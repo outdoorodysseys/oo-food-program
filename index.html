@@ -624,6 +624,22 @@ function parseFlybookRoster(text){
     return null;
   }
 
+  // Parse waiver emails from header section (before Reservation Questions)
+  if(sections[0]){
+    sections[0].split('
+').forEach(function(line){
+      line=line.trim();
+      if(/^Signed Waivers/i.test(line)){inWaivers=true;return;}
+      if(inWaivers){
+        if(!line){return;}
+        if(/^Name\s+Email/i.test(line)) return;
+        var wm=line.match(/\S+@\S+\.\S+/);
+        if(wm) waiverEmails[wm[0].toLowerCase()]=true;
+      }
+    });
+    inWaivers=false;
+  }
+
   var sectionIdx=0;
   sections.slice(1).forEach(function(section){
     sectionIdx++;
