@@ -194,7 +194,7 @@ body{font-family:Arial,sans-serif;background:var(--cream);color:var(--ink)}
         <input type="checkbox" id="fire-ban" style="accent-color:var(--red);width:16px;height:16px" onchange="onFireBanChange()">
         &#x1F525; Fire Ban Active
       </label>
-      <div style="font-size:10px;color:var(--muted);margin-top:4px">Excludes Dutch Oven recipes</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:4px">Excludes Dutch Oven recipes</div><div id="small-group-do-note" style="font-size:10px;color:var(--sage);margin-top:2px;display:none">Auto: group &lt;4, no Dutch Oven</div>
     </div>
     <div id="sel-actions" style="display:none">
       <button class="btn bp" id="plan-btn" onclick="startPlanning()">&#x25B6; Plan Selected Trips</button>
@@ -875,6 +875,9 @@ function toggleTripById(id){var cb=document.getElementById('cb-'+id);cb.closest(
 function updateSelActions(){
   S.selectedIds=S.allTrips.filter(function(t){var cb=document.getElementById('cb-'+String(t.id||t.activityId));return cb&&cb.checked;}).map(function(t){return String(t.id||t.activityId);});
   document.getElementById('sel-actions').style.display=S.selectedIds.length?'block':'none';
+  // Show small group Dutch Oven note
+  var note=document.getElementById('small-group-do-note');
+  if(note){var tid=S.selectedIds[0];var n=tid&&S.tripData[tid]?(S.tripData[tid].trip.numberGoing||(S.tripData[tid].guests||[]).length):0;note.style.display=(n>0&&n<4)?'block':'none';}
   var btn=document.getElementById('plan-btn');
   if(btn)btn.textContent='\u25B6 Plan '+S.selectedIds.length+' Trip'+(S.selectedIds.length>1?'s':'');
 }
@@ -980,7 +983,14 @@ function onFireBanChange() {
 
 function isFireBan() {
   var cb = document.getElementById('fire-ban');
-  return cb && cb.checked;
+  if (cb && cb.checked) return true;
+  // Groups < 4 guests: Dutch Oven quantities too large
+  var tid = S.selectedIds && S.selectedIds[0];
+  if (tid && S.tripData[tid]) {
+    var n = S.tripData[tid].trip.numberGoing || (S.tripData[tid].guests||[]).length || 0;
+    if (n > 0 && n < 4) return true;
+  }
+  return false;
 }
 
 function autoAssignMeals(id) {
