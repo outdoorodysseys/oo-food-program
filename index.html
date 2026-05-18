@@ -546,6 +546,7 @@ function parseFlybookRoster(text){
     ['WeightinPounds','Weight in Pounds','weight'],
     ['Willyouneedasleepingbagandpad?','Will you need a sleeping bag and pad?','sb'],
     ['TentNeeds','Tent Needs','tent'],
+    ['BioluminescenceMulti-DayTourAdd-On','Bioluminescence Multi-Day Tour Add-On','bio'],
     ['MedicalConditions','Medical Conditions','medical'],
     ['TravelCompanions','Travel Companions','companions'],
     ['InternalNotes','Internal Notes','notes'],
@@ -589,6 +590,8 @@ function parseFlybookRoster(text){
   var guests=[];
   var waiverEmails={};
   var inWaivers=false;
+  var inProducts=false;
+  var bioCount=0;
 
   // All Q label prefixes for filtering
   var qPrefixes=[];
@@ -637,6 +640,16 @@ function parseFlybookRoster(text){
       }
     });
     inWaivers=false;
+    // Also parse Products section for bio count
+    var inProd=false;
+    sections[0].split("\n").forEach(function(line){
+      line=line.trim();
+      if(/^Products\/Custom/i.test(line)){inProd=true;return;}
+      if(inProd){
+        var bm=line.match(/Bioluminescence.+?(\d+)$/i);
+        if(bm) bioCount=parseInt(bm[1]);
+      }
+    });
   }
 
   var sectionIdx=0;
@@ -659,7 +672,16 @@ function parseFlybookRoster(text){
       for(var pi=0;pi<qPrefixes.length;pi++){if(line.indexOf(qPrefixes[pi])===0){isQ=true;break;}}
       if(isQ) return;
       // Exclude waiver/product lines
-      if(/^(Products|Sleeping Kit)/i.test(line)) return;
+      if(/^Sleeping Kit/i.test(line)) return;
+      // Parse bio add-on count from Products section
+      if(/^Products\/Custom Line Items/i.test(line)){inProducts=true;return;}
+      if(inProducts){
+        if(/^Name\s+Quantity/i.test(line)) return;
+        if(/^Reservation Questions/i.test(line)){inProducts=false;return;}
+        var bm=line.match(/Bioluminescence.+?(\d+)$/i);
+        if(bm) bioCount=parseInt(bm[1]);
+        return;
+      }
       // Parse waiver signers - collect emails that have signed
       if(/^Signed Waivers/i.test(line)){
         inWaivers=true;
@@ -763,10 +785,16 @@ function parseFlybookRoster(text){
         source:qa.source||'',
         resGroup:sectionIdx,
         resGroupName:resGroupNames[sectionIdx-1]||'',
-        waiverSigned:waiverSigned
+        waiverSigned:waiverSigned,
+        bio:/yes|true/i.test(qa.bio||'')
       });
     });
   });
+
+  // If bio count from Products matches all guests, mark everyone (per-guest Q&A may not exist)
+  if(bioCount>0 && bioCount>=guests.length){
+    guests.forEach(function(g){g.bio=true;});
+  }
 
   // Dedupe by normalized name
   var seen={};
@@ -1264,6 +1292,10 @@ function buildPacket(id,trip,gs,plan){
     return '<tr style="vertical-align:top">'
       +'<td><div style="font-size:14px;font-weight:700">'+g.name+'</div>'
       +(g.phone?'<div style="font-size:11px;color:var(--muted)">'+formatPhone(g.phone)+'</div>':'')
+      +'<div style="margin-top:3px;display:flex;gap:3px;flex-wrap:wrap">'
+      +(g.waiverSigned?'<span style="font-size:9px;background:#dcfce7;color:#166534;padding:1px 5px;border-radius:3px;font-weight:600">&#x2713; Waiver</span>':'<span style="font-size:9px;background:#fee2e2;color:#991b1b;padding:1px 5px;border-radius:3px;font-weight:600">&#x26A0; No Waiver</span>')
+      +(g.bio?'<span style="font-size:9px;background:#ede9fe;color:#5b21b6;padding:1px 5px;border-radius:3px;font-weight:600">&#x1F319; Bio</span>':'')
+      +'</div>'
       +extras+'</td>'
       +'<td style="white-space:nowrap">'+(g.height||'&mdash;')+' / '+(g.weight?g.weight+' lbs':'&mdash;')+'</td>'
       +'<td>'+(g.age||'&mdash;')+'</td>'
@@ -1271,7 +1303,6 @@ function buildPacket(id,trip,gs,plan){
       +'<td style="font-size:11px">'+med+'</td>'
       +'<td>'+sbBadge+'</td>'
       +'<td>'+tentBadge+'</td>'
-      +'<td>'+(g.waiverSigned?'<span class="fl fg" style="font-size:9px">&#x2713; Signed</span>':'<span class="fl" style="background:#fee2e2;color:#991b1b;font-size:9px">&#x26A0; Missing</span>')+'</td>'
       +'</tr>';
   }
 
@@ -1305,7 +1336,7 @@ function buildPacket(id,trip,gs,plan){
   if(trip.notes){notesHtml+='<div class="al" style="background:#fafafa;border-color:#ccc;margin-bottom:8px"><strong>Notes:</strong> '+trip.notes.replace(/\n/g,' ')+'</div>';}
   var roster='<div class="sb"><div class="sh">&#x1F465; Guest Roster &mdash; '+guestCount+' Guests</div>'+notesHtml+ah
     +'<table class="rt"><thead><tr>'
-    +'<th>Name / Phone</th><th>Ht / Wt</th><th>Age</th><th>Dietary</th><th>Medical</th><th>Sleeping</th><th>Tent</th><th>Waiver</th>'
+    +'<th>Name / Phone</th><th>Ht / Wt</th><th>Age</th><th>Dietary</th><th>Medical</th><th>Sleeping</th><th>Tent</th>'
     +'</tr></thead><tbody>'+rrows+'</tbody></table></div>';
 
   // Menu
