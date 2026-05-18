@@ -1293,6 +1293,14 @@ function buildPacket(id,trip,gs,plan){
           if(pri>priThresh)return '';
           s=s.replace(/\s*\(priority\s*\d+\)/i,'').trim();
         }
+        // Per-DO scaling: "1 box Brownie Mix (per DO)" — scale by number of DOs not pax
+        var perDO=/\(per DO[^)]*\)/i.test(s);
+        if(perDO){
+          s=s.replace(/\s*\(per DO[^)]*\)/i,'').trim();
+          var numDO=guestCount<=7?1:guestCount<=12?2:3;
+          var scaled2=sc(s,numDO);
+          return '<li>'+scaled2+'</li>';
+        }
         // Handle range: "5-8 Crackers" -> "5 Crackers"
         var s2=s.replace(/^([\d.]+)\s*-\s*\d+\s+/,'$1 ');
         var isAlc=/\b(wine|beer|spirits?|alcohol|champagne|prosecco|cider|whiskey|bourbon|vodka|rum|gin|tequila|liqueur)\b/i.test(s2);
@@ -1441,6 +1449,15 @@ function buildPacket(id,trip,gs,plan){
       var priM=ing.match(/\(priority\s*(\d+)\)/i);
       if(priM){var pri2=parseInt(priM[1]);var pt=guestCount<4?1:guestCount<8?2:99;if(pri2>pt)return;}
       ing=ing.replace(/\s*\(priority\s*\d+\)/i,'').trim();
+      // Per-DO scaling: scale by number of DOs needed, not per pax
+      var perDO2=/\(per DO[^)]*\)/i.test(ing);
+      if(perDO2){
+        ing=ing.replace(/\s*\(per DO[^)]*\)/i,'').trim();
+        var numDO2=guestCount<=7?1:guestCount<=12?2:3;
+        var scaledDO=sc(ing,numDO2);
+        // Override ing2 and n so the rest of the pipeline uses DO-scaled qty
+        ing=scaledDO; // already scaled — don't scale again
+      }
 
       // Handle range notation: "5-8 Crackers" -> take first number, name = "Crackers"
       // Also "3-4 Basil Leaves" -> qty=3, name="Basil Leaves"
@@ -1466,7 +1483,7 @@ function buildPacket(id,trip,gs,plan){
       var src=mv?mv['Typical Sourcing']:'';
       var isGuide=src==='Guide Procured';
       var isAlcShop=/\b(wine|beer|spirits?|alcohol|champagne|prosecco|cider|whiskey|bourbon|vodka|rum|gin|tequila|liqueur)\b/i.test(ing2);
-      var scaled = sc(ing2, isAlcShop?guestCount:n);
+      var scaled = perDO2 ? ing : sc(ing2, isAlcShop?guestCount:n);
       // For items with no inventory match, show scaled qty cleanly
       var pkgQty = mv ? toPkgQty(ing2, scaled, mv) : scaled;
       // Skip garnish/count items with no weight/volume unit (e.g. "30 Basil Leaves", "10 Crackers")
