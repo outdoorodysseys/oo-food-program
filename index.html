@@ -1182,7 +1182,8 @@ function generateAll(){
 }
 
 function buildPacket(id,trip,gs,plan){
-  var n=trip.numberGoing||gs.length||1;
+  var guestCount=trip.numberGoing||gs.length||1;
+  var n=guestCount+1; // +1 for guide
 
   // Build inventory lookup FIRST so findInv works throughout
   var invLookup={};
@@ -1276,7 +1277,8 @@ function buildPacket(id,trip,gs,plan){
         var s=raw.trim(); if(!s)return '';
         // Handle range: "5-8 Crackers" -> "5 Crackers"
         var s2=s.replace(/^([\d.]+)\s*-\s*\d+\s+/,'$1 ');
-        var scaled=sc(s2,n);
+        var isAlc=/\b(wine|beer|spirits?|alcohol|champagne|prosecco|cider|whiskey|bourbon|vodka|rum|gin|tequila|liqueur)\b/i.test(s2);
+        var scaled=sc(s2,isAlc?guestCount:n);
         // Only try package conversion if ingredient has a leading number
         if(/^[\d.]/.test(s2)){
           var mv=findInv(s2);
@@ -1436,7 +1438,8 @@ function buildPacket(id,trip,gs,plan){
       var loc=mv?mv['Procurement Location']:'';
       var src=mv?mv['Typical Sourcing']:'';
       var isGuide=src==='Guide Procured';
-      var scaled = sc(ing2, n);
+      var isAlcShop=/\b(wine|beer|spirits?|alcohol|champagne|prosecco|cider|whiskey|bourbon|vodka|rum|gin|tequila|liqueur)\b/i.test(ing2);
+      var scaled = sc(ing2, isAlcShop?guestCount:n);
       // For items with no inventory match, show scaled qty cleanly
       var pkgQty = mv ? toPkgQty(ing2, scaled, mv) : scaled;
       // Skip garnish/count items with no weight/volume unit (e.g. "30 Basil Leaves", "10 Crackers")
