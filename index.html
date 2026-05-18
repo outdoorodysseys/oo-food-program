@@ -1407,8 +1407,12 @@ function buildPacket(id,trip,gs,plan){
           if(iw.indexOf(kw)>-1||kw.indexOf(iw)>-1) matches++;
         });
       });
-      // Score: word matches * 10 + length (prefer more specific matches)
-      var score = matches * 10 + k.length;
+      // Score: word matches * 10, bonus for exact match, penalty for unmatched key words
+      var unmatchedK = kwords.filter(function(kw){
+        return !iwords.some(function(iw){return iw.indexOf(kw)>-1||kw.indexOf(iw)>-1;});
+      }).length;
+      var exactBonus = kwords.length===1 && iwords.length===1 && kwords[0]===iwords[0] ? 20 : 0;
+      var score = matches * 10 + exactBonus - unmatchedK * 5;
       if(matches>0 && score>bestLen){best=invLookup[k];bestLen=score;}
     });
     return best;
