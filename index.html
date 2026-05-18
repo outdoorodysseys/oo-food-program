@@ -587,6 +587,8 @@ function parseFlybookRoster(text){
   var sections=text.split(/Reservation\s*Questions/i);
   var used={};
   var guests=[];
+  var waiverEmails={};
+  var inWaivers=false;
 
   // All Q label prefixes for filtering
   var qPrefixes=[];
@@ -642,7 +644,20 @@ function parseFlybookRoster(text){
       for(var pi=0;pi<qPrefixes.length;pi++){if(line.indexOf(qPrefixes[pi])===0){isQ=true;break;}}
       if(isQ) return;
       // Exclude waiver/product lines
-      if(/^(Signed|Products|Sleeping Kit|Name\s+Email|Waiver)/i.test(line)) return;
+      if(/^(Products|Sleeping Kit)/i.test(line)) return;
+      // Parse waiver signers - collect emails that have signed
+      if(/^Signed Waivers/i.test(line)){
+        inWaivers=true;
+        return;
+      }
+      if(inWaivers){
+        if(/^Reservation Questions/i.test(line)){inWaivers=false;return;}
+        if(/^Name\s+Email/i.test(line)) return; // skip header
+        // Each waiver line: "FirstName LastName  email@example.com  WaiverName"
+        var wm=line.match(/\S+@\S+\.\S+/);
+        if(wm) waiverEmails[wm[0].toLowerCase()]=true;
+        return;
+      }
       bstarts.push(i);
     });
 
@@ -674,6 +689,9 @@ function parseFlybookRoster(text){
       }
       var client=findClient(blockName,email);
       var name=client?client.name:spaceCaps(blockName);
+      // Check if guest has signed waiver
+      var guestEmail=(email||'').toLowerCase();
+      var waiverSigned=!!(waiverEmails[guestEmail] || (client&&waiverEmails[(client.email||'').toLowerCase()]));
 
       // Decode SB
       var sbRaw=qa.sb||'';
@@ -729,7 +747,8 @@ function parseFlybookRoster(text){
         notes:qa.notes||'',
         source:qa.source||'',
         resGroup:sectionIdx,
-        resGroupName:resGroupNames[sectionIdx-1]||''
+        resGroupName:resGroupNames[sectionIdx-1]||'',
+        waiverSigned:waiverSigned
       });
     });
   });
@@ -1237,6 +1256,7 @@ function buildPacket(id,trip,gs,plan){
       +'<td style="font-size:11px">'+med+'</td>'
       +'<td>'+sbBadge+'</td>'
       +'<td>'+tentBadge+'</td>'
+      +'<td>'+(g.waiverSigned?'<span class="fl fg" style="font-size:9px">&#x2713; Signed</span>':'<span class="fl" style="background:#fee2e2;color:#991b1b;font-size:9px">&#x26A0; Missing</span>')+'</td>'
       +'</tr>';
   }
 
@@ -1270,7 +1290,7 @@ function buildPacket(id,trip,gs,plan){
   if(trip.notes){notesHtml+='<div class="al" style="background:#fafafa;border-color:#ccc;margin-bottom:8px"><strong>Notes:</strong> '+trip.notes.replace(/\n/g,' ')+'</div>';}
   var roster='<div class="sb"><div class="sh">&#x1F465; Guest Roster &mdash; '+guestCount+' Guests</div>'+notesHtml+ah
     +'<table class="rt"><thead><tr>'
-    +'<th>Name / Phone</th><th>Ht / Wt</th><th>Age</th><th>Dietary</th><th>Medical</th><th>Sleeping</th><th>Tent</th>'
+    +'<th>Name / Phone</th><th>Ht / Wt</th><th>Age</th><th>Dietary</th><th>Medical</th><th>Sleeping</th><th>Tent</th><th>Waiver</th>'
     +'</tr></thead><tbody>'+rrows+'</tbody></table></div>';
 
   // Menu
