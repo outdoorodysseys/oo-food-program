@@ -1267,7 +1267,7 @@ function buildPacket(id,trip,gs,plan){
   var notesHtml='';
   if(trip.clientNotes){notesHtml+='<div class="al" style="background:#f0f9ff;border-color:#bae6fd;margin-bottom:8px"><strong>&#x1F4CB; Guide Notes:</strong> '+trip.clientNotes.replace(/\n/g,' ')+'</div>';}
   if(trip.notes){notesHtml+='<div class="al" style="background:#fafafa;border-color:#ccc;margin-bottom:8px"><strong>Notes:</strong> '+trip.notes.replace(/\n/g,' ')+'</div>';}
-  var roster='<div class="sb"><div class="sh">&#x1F465; Guest Roster &mdash; '+n+' Guests</div>'+notesHtml+ah
+  var roster='<div class="sb"><div class="sh">&#x1F465; Guest Roster &mdash; '+guestCount+' Guests</div>'+notesHtml+ah
     +'<table class="rt"><thead><tr>'
     +'<th>Name / Phone</th><th>Ht / Wt</th><th>Age</th><th>Dietary</th><th>Medical</th><th>Sleeping</th><th>Tent</th>'
     +'</tr></thead><tbody>'+rrows+'</tbody></table></div>';
@@ -1331,7 +1331,7 @@ function buildPacket(id,trip,gs,plan){
       var spb=r['Shop-Prep Items']&&r['Shop-Prep Items']!=='N/A'?r['Shop-Prep Items'].split(',').map(function(s){return '<span class="fl fg">&#x1F3EA; '+s.trim()+'</span>';}).join(''):'';
       dayHtml+='<div class="mc"><div class="mch" style="background:'+(CC[mt]||'#f8f8f8')+'">'
         +'<div class="mcn">'+r['Recipe Name']+'</div><span class="mck">'+mt+'</span></div>'
-        +'<div class="mcb"><div><div style="font-size:9px;text-transform:uppercase;color:var(--muted);margin-bottom:3px">Ingredients &middot; '+n+' guests</div>'
+        +'<div class="mcb"><div><div style="font-size:9px;text-transform:uppercase;color:var(--muted);margin-bottom:3px">Ingredients &middot; '+guestCount+' guests (+1 guide)</div>'
         +'<ul class="il">'+ings+'</ul>'+(spb?'<div style="margin-top:5px">'+spb+'</div>':'')+'</div>'
         +'<div>'+(r['Prep Notes']?'<div class="nt">'+r['Prep Notes']+'</div>':'')
         +mods.map(function(m){return '<div class="md">&#x26A0; '+m+'</div>';}).join('')+'</div></div></div>';
