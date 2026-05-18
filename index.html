@@ -1293,6 +1293,12 @@ function buildPacket(id,trip,gs,plan){
           if(pri>priThresh)return '';
           s=s.replace(/\s*\(priority\s*\d+\)/i,'').trim();
         }
+        // Shared item: use qty as-is, no per-pax scaling
+        if(/\(shared[^)]*\)/i.test(s)){
+          s=s.replace(/\s*\(shared[^)]*\)/i,'').trim();
+          var scaled2s=sc(s,1);
+          return '<li>'+scaled2s+'</li>';
+        }
         // Per-DO scaling: "1 box Brownie Mix (per DO)" — scale by number of DOs not pax
         var perDO=/\(per DO[^)]*\)/i.test(s);
         if(perDO){
@@ -1450,6 +1456,11 @@ function buildPacket(id,trip,gs,plan){
       var priM=ing.match(/\(priority\s*(\d+)\)/i);
       if(priM){var pri2=parseInt(priM[1]);var pt=guestCount<4?1:guestCount<8?2:99;if(pri2>pt)return;}
       ing=ing.replace(/\s*\(priority\s*\d+\)/i,'').trim();
+      // Shared item: fixed qty, no per-pax scaling
+      if(/\(shared[^)]*\)/i.test(ing)){
+        ing=ing.replace(/\s*\(shared[^)]*\)/i,'').trim();
+        // ing is already the correct qty — skip further scaling
+      }
       // Per-DO scaling: scale by number of DOs needed, not per pax
       var perDO2=/\(per DO[^)]*\)/i.test(ing);
       if(perDO2){
