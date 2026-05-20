@@ -466,7 +466,8 @@ function processPDFText(text, statusEl){
   var tripNotesObj = extractTripNotes(text);
   // Parse products/add-ons directly from raw text
   var tripProducts={};
-  (function(){var inP=false;text.split('\n').forEach(function(line){line=line.trim();if(/^Products.Custom/i.test(line)){inP=true;return;}if(inP){if(/^Reservation Questions/i.test(line)){inP=false;return;}if(/^Name\s+Quantity/i.test(line))return;var pm=line.match(/^(.+?)\s+(\d+)\s*$/);if(pm&&pm[1].trim().length>2&&isNaN(parseInt(pm[1])))tripProducts[pm[1].trim()]=parseInt(pm[2]);}});})();
+  (function(){var inP=false;text.split('\n').forEach(function(line){line=line.trim();if(/^Products.Custom/i.test(line)){inP=true;return;}if(inP){if(/^Reservation Questions/i.test(line)){inP=false;return;}if(/^Name\s+Quantity/i.test(line))return;var pm=line.match(/^(.+?)\s+(\d+)\s*$/);var k=pm[1].trim();
+if(k.length>2&&isNaN(parseInt(k))&&!/email:|phone:|@|signed waivers/i.test(k)&&!/ - /.test(k))tripProducts[k]=parseInt(pm[2]);}});})();
   var trip = {id:tripId,activityId:tripId,activityName:tripName,startTime:startTime,endTime:endTime,numberGoing:guests.length,notes:tripNotesObj.notes,clientNotes:tripNotesObj.clientNotes,products:tripProducts};
   // Always clear prior imported rosters — prevents stale data from persisting
   S.allTrips = S.allTrips.filter(function(t){return !String(t.id).startsWith('pdf_');});
@@ -1433,13 +1434,17 @@ function buildPacket(id,trip,gs,plan){
       tentOwn++;
     }
   });
-  var tentOO=0;
+  var tentOO=0, tentBig=0, tentSmall=0;
   var tentBreakdown=[];
   Object.keys(resTentMap).forEach(function(grp){
     var names=resTentMap[grp];
-    var tents=Math.ceil(names.length/2);
-    tentOO+=tents;
-    tentBreakdown.push(tents+'T: '+names.join(' + '));
+    // Big tent = 2 people, small tent = 1 person
+    // e.g. 3 people = 1 big + 1 small; 4 = 2 big; 2 = 1 big; 1 = 1 small
+    var big=Math.floor(names.length/2);
+    var small=names.length%2;
+    tentBig+=big; tentSmall+=small;
+    tentOO+=big+small;
+    tentBreakdown.push(names.join(' + ')+': '+(big?big+' big':'')+(big&&small?' + ':'')+( small?small+' small':''));
   });
 
   // Build products lookup from trip
@@ -1447,7 +1452,6 @@ function buildPacket(id,trip,gs,plan){
 
   // Known add-ons: always show, highlight nonzero
   var ADDONS = [
-    {key:'Sleeping Kit', label:'&#x1F6CF; Sleeping Kit (Rental)', match:/sleeping kit/i},
     {key:'OO Hat',       label:'&#x1F9E2; OO Hat',                match:/\boo\s*hat\b|^hat$/i},
     {key:'Bio',          label:'&#x1F319; Bioluminescence Paddle', match:/bioluminescence/i},
   ];
@@ -1479,10 +1483,13 @@ function buildPacket(id,trip,gs,plan){
     +'<div style="font-size:12px;color:var(--muted);margin-top:2px">'+sbOwn+' bringing own</div>'
     +'</div>'
     +'<div style="border:1.5px solid var(--stone);border-radius:6px;padding:12px">'
-    +'<div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:6px">&#x26FA; OO Tents (2 per tent, no strangers)</div>'
-    +'<div style="font-size:22px;font-weight:700;color:var(--forest)">'+tentOO+'<span style="font-size:12px;font-weight:400;color:var(--muted)"> OO tents</span></div>'
-    +'<div style="font-size:11px;color:var(--muted);margin-top:4px">'+tentBreakdown.join(' &nbsp;|&nbsp; ')+'</div>'
-    +(tentOwn?'<div style="font-size:11px;color:var(--muted)">'+tentOwn+' guests bringing own</div>':'')
+    +'<div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:6px">&#x26FA; OO Tents (no strangers)</div>'
+    +'<div style="display:flex;gap:12px;margin-bottom:4px">'
+    +(tentBig?'<div><span style="font-size:22px;font-weight:700;color:var(--forest)">'+tentBig+'</span><span style="font-size:11px;color:var(--muted)"> big (2-person)</span></div>':'')
+    +(tentSmall?'<div><span style="font-size:22px;font-weight:700;color:var(--forest)">'+tentSmall+'</span><span style="font-size:11px;color:var(--muted)"> small (1-person)</span></div>':'')
+    +(!tentBig&&!tentSmall?'<div style="font-size:22px;font-weight:700;color:var(--muted)">0</div>':'')
+    +'</div>'
+    +(tentOwn?'<div style="font-size:11px;color:var(--muted)">'+tentOwn+' bringing own</div>':'')
     +'</div>'
     +'</div>'
     +'<div style="border:1.5px solid var(--stone);border-radius:6px;padding:10px 12px;margin-bottom:10px">'
