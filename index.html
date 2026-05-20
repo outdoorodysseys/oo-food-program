@@ -636,8 +636,9 @@ function parseFlybookRoster(text){
   (function(){
     // Insert newlines before known patterns to handle PDF merge artifacts
     var raw = text
+      .replace(/(\d)(Signed Waivers)/gi, '$1\n$2')
       .replace(/(Release Form|General Release Form)([A-Z])/g, '$1\n$2')
-      .replace(/(\.com|\.[a-z]{2,3})(Release|General|Name\s)/g, '$1\n$2');
+      .replace(/(\.com|\.vom)(Release|General|Signed)/gi, '$1\n$2');
     var lines = raw.split('\n');
     var inW = false;
     for(var i=0;i<lines.length;i++){
