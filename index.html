@@ -631,35 +631,31 @@ function parseFlybookRoster(text){
     return null;
   }
 
-  // Parse waiver emails from header section (before Reservation Questions)
-  if(sections[0]){
-    sections[0].split('\n').forEach(function(line){
-      line=line.trim();
-      if(/^Signed Waivers/i.test(line)){inWaivers=true;return;}
-      if(inWaivers){
-        if(!line){return;}
-        if(/^Name\s+Email/i.test(line)) return;
-        var wm=line.match(/\S+@\S+\.\S+/);
-        if(wm) waiverEmails[wm[0].toLowerCase()]=true;
+  // Collect ALL waiver emails from entire text — multiple Signed Waivers blocks per PDF
+  // Also handle merged lines: "email@x.comRelease Form" or "FormName email@x.com"
+  (function(){
+    // Insert newlines before known patterns to handle PDF merge artifacts
+    var raw = text
+      .replace(/(Release Form|General Release Form)([A-Z])/g, '$1\n$2')
+      .replace(/(\.com|\.[a-z]{2,3})(Release|General|Name\s)/g, '$1\n$2');
+    var lines = raw.split('\n');
+    var inW = false;
+    for(var i=0;i<lines.length;i++){
+      var line = lines[i].trim();
+      if(/^Signed Waivers/i.test(line)){inW=true;continue;}
+      if(inW){
+        // Stop at next reservation group header, Products section, or Reservation Questions
+        if(/^(Reservation Questions|Products\/Custom|Name\s+Email\s+Waiver)/i.test(line)){
+          // Don't stop on "Name Email WaiverName" header — just skip it
+          if(/^Name\s+Email/i.test(line)) continue;
+          if(!/^Name\s+Email/i.test(line)) inW=false;
+        }
+        // Extract email from this line (may have name + email + waiver type all on one line)
+        var em = line.match(/[\w.+%-]+@[\w.-]+\.[a-z]{2,}/i);
+        if(em) waiverEmails[em[0].toLowerCase()] = true;
       }
-    });
-    inWaivers=false;
-    // Parse ALL products from Products section
-    var inProd=false;
-    var tripProducts={};
-    sections[0].split("\n").forEach(function(line){
-      line=line.trim();
-      if(/^Products\/Custom/i.test(line)){inProd=true;return;}
-      if(inProd){
-        if(/^Name\s+Quantity/i.test(line)) return;
-        var pm=line.match(/^(.+?)\s+(\d+)\s*$/);
-        if(pm) tripProducts[pm[1].trim()]=parseInt(pm[2]);
-        // Also track bio count
-        var bm=line.match(/Bioluminescence.+?(\d+)$/i);
-        if(bm) bioCount=parseInt(bm[1]);
-      }
-    });
-  }
+    }
+  })();
 
   var sectionIdx=0;
   sections.slice(1).forEach(function(section){
