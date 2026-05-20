@@ -464,7 +464,7 @@ function processPDFText(text, statusEl){
     ? new Date(endDateMatch[1]).toISOString()
     : new Date(new Date(startTime).getTime()+3*86400000).toISOString();
   var tripNotesObj = extractTripNotes(text);
-  var trip = {id:tripId,activityId:tripId,activityName:tripName,startTime:startTime,endTime:endTime,numberGoing:guests.length,notes:tripNotesObj.notes,clientNotes:tripNotesObj.clientNotes};
+  var trip = {id:tripId,activityId:tripId,activityName:tripName,startTime:startTime,endTime:endTime,numberGoing:guests.length,notes:tripNotesObj.notes,clientNotes:tripNotesObj.clientNotes,products:tripProducts};
   // Always clear prior imported rosters — prevents stale data from persisting
   S.allTrips = S.allTrips.filter(function(t){return !String(t.id).startsWith('pdf_');});
   S.allTrips.unshift(trip);
@@ -640,12 +640,17 @@ function parseFlybookRoster(text){
       }
     });
     inWaivers=false;
-    // Also parse Products section for bio count
+    // Parse ALL products from Products section
     var inProd=false;
+    var tripProducts={};
     sections[0].split("\n").forEach(function(line){
       line=line.trim();
       if(/^Products\/Custom/i.test(line)){inProd=true;return;}
       if(inProd){
+        if(/^Name\s+Quantity/i.test(line)) return;
+        var pm=line.match(/^(.+?)\s+(\d+)\s*$/);
+        if(pm) tripProducts[pm[1].trim()]=parseInt(pm[2]);
+        // Also track bio count
         var bm=line.match(/Bioluminescence.+?(\d+)$/i);
         if(bm) bioCount=parseInt(bm[1]);
       }
@@ -1436,35 +1441,53 @@ function buildPacket(id,trip,gs,plan){
     tentBreakdown.push(tents+'T: '+names.join(' + '));
   });
 
-  var bioPax=gs.filter(function(g){return g.bio;}).length;
+  // Build products lookup from trip
+  var prods = trip.products || {};
+
+  // Known add-ons: always show, highlight nonzero
+  var ADDONS = [
+    {key:'Sleeping Kit', label:'&#x1F6CF; Sleeping Kit (Rental)', match:/sleeping kit/i},
+    {key:'OO Hat',       label:'&#x1F9E2; OO Hat',                match:/\boo\s*hat\b|^hat$/i},
+    {key:'Bio',          label:'&#x1F319; Bioluminescence Paddle', match:/bioluminescence/i},
+  ];
+  var addonCounts = {}; ADDONS.forEach(function(a){addonCounts[a.key]=0;});
+  var extraProds = [];
+  Object.keys(prods).forEach(function(name){
+    var matched=false;
+    ADDONS.forEach(function(a){if(a.match.test(name)){addonCounts[a.key]+=prods[name];matched=true;}});
+    if(!matched) extraProds.push({name:name,qty:prods[name]});
+  });
+  var addonRows=ADDONS.map(function(a){
+    var qty=addonCounts[a.key],hit=qty>0;
+    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 10px;border-radius:4px;margin-bottom:2px;background:'+(hit?'#f5f3ff':'#f9fafb')+';border:1px solid '+(hit?'#c4b5fd':'#e5e7eb')+'">'
+      +'<span style="font-size:11px;'+(hit?'color:#3730a3;font-weight:700':'color:var(--muted)')+'">'+a.label+'</span>'
+      +'<span style="font-size:15px;font-weight:800;'+(hit?'color:#3730a3':'color:#d1d5db')+'">'+qty+'</span>'
+      +'</div>';
+  }).join('')+extraProds.map(function(p){
+    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 10px;border-radius:4px;margin-bottom:2px;background:#fefce8;border:1px solid #fde68a">'
+      +'<span style="font-size:11px;color:#854d0e;font-weight:700">'+p.name+'</span>'
+      +'<span style="font-size:15px;font-weight:800;color:#854d0e">'+p.qty+'</span>'
+      +'</div>';
+  }).join('');
 
   var gearSummaryHtml='<div class="sb"><div class="sh">&#x1F3D2; Gear Summary</div>'
-    +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">'
-    // SB box
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">'
     +'<div style="border:1.5px solid var(--stone);border-radius:6px;padding:12px">'
     +'<div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:6px">&#x1F6CF; Sleeping Bags + Pads</div>'
     +'<div style="font-size:22px;font-weight:700;color:var(--forest)">'+sbRental+'<span style="font-size:12px;font-weight:400;color:var(--muted)"> rentals</span></div>'
     +'<div style="font-size:12px;color:var(--muted);margin-top:2px">'+sbOwn+' bringing own</div>'
     +'</div>'
-    // Tent box
     +'<div style="border:1.5px solid var(--stone);border-radius:6px;padding:12px">'
     +'<div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:6px">&#x26FA; OO Tents (2 per tent, no strangers)</div>'
     +'<div style="font-size:22px;font-weight:700;color:var(--forest)">'+tentOO+'<span style="font-size:12px;font-weight:400;color:var(--muted)"> OO tents</span></div>'
     +'<div style="font-size:11px;color:var(--muted);margin-top:4px">'+tentBreakdown.join(' &nbsp;|&nbsp; ')+'</div>'
     +(tentOwn?'<div style="font-size:11px;color:var(--muted)">'+tentOwn+' guests bringing own</div>':'')
     +'</div>'
-    // Bio add-on box
-    +'<div style="border:1.5px solid #ede9fe;border-radius:6px;padding:12px">'
-    +'<div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:6px">&#x1F319; Bioluminescence Add-On</div>'
-    +(bioPax>0
-      ?'<div style="font-size:22px;font-weight:700;color:#5b21b6">'+bioPax+'<span style="font-size:12px;font-weight:400;color:var(--muted)"> guests</span></div>'
-      +'<div style="font-size:12px;color:var(--muted);margin-top:2px">'+gs.filter(function(g){return g.bio;}).map(function(g){return g.name.split(' ')[0];}).join(', ')+'</div>'
-      :'<div style="font-size:22px;font-weight:700;color:var(--muted)">0<span style="font-size:12px;font-weight:400"> guests</span></div>'
-      +'<div style="font-size:12px;color:var(--muted);margin-top:2px">None booked</div>'
-    )
     +'</div>'
+    +'<div style="border:1.5px solid var(--stone);border-radius:6px;padding:10px 12px;margin-bottom:10px">'
+    +'<div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:6px">&#x1F6CD; Add-Ons &amp; Merch</div>'
+    +addonRows
     +'</div>'
-    // Individual gear list
     +(sbRental>0||tentOO>0?
       '<div style="font-size:11px;color:var(--muted)">'
       +gs.filter(function(g){return g.sleepingBag==='Rental'||g.tent==='OO Tent';}).map(function(g){
@@ -1472,9 +1495,10 @@ function buildPacket(id,trip,gs,plan){
         if(g.sleepingBag==='Rental') items.push('SB+Pad');
         if(g.tent==='OO Tent') items.push('Tent');
         return '<span style="display:inline-block;margin:2px 8px 2px 0">&#x2022; <strong>'+g.name+'</strong>: '+items.join(' + ')+'</span>';
-      }).join('')+'</div>':''
-    )
+      }).join('')+'</div>':'')
     +'</div>';
+
+  // ── SHOPPING LIST
 
   // ── SHOPPING LIST ─────────────────────────────────────────────
   // Split into: Shop (company sources) and Guide (guide procures)
