@@ -466,10 +466,7 @@ function processPDFText(text, statusEl){
   var tripNotesObj = extractTripNotes(text);
   // Parse products/add-ons directly from raw text
   var tripProducts={};
-  var prodM=text.match(/Products\/Custom Line Items[\s\S]*?(?=
-\S.*-\s*\d+|$)/i);
-  if(prodM){prodM[0].split("
-").forEach(function(line){line=line.trim();var pm=line.match(/^(.+?)\s+(\d+)\s*$/);if(pm&&!/^Name\s+Quantity/i.test(line))tripProducts[pm[1].trim()]=parseInt(pm[2]);});}
+  (function(){var inP=false;text.split('\n').forEach(function(line){line=line.trim();if(/^Products.Custom/i.test(line)){inP=true;return;}if(inP){if(/^Name\s+Quantity/i.test(line))return;var pm=line.match(/^(.+?)\s+(\d+)\s*$/);if(pm)tripProducts[pm[1].trim()]=parseInt(pm[2]);}});})();
   var trip = {id:tripId,activityId:tripId,activityName:tripName,startTime:startTime,endTime:endTime,numberGoing:guests.length,notes:tripNotesObj.notes,clientNotes:tripNotesObj.clientNotes,products:tripProducts};
   // Always clear prior imported rosters — prevents stale data from persisting
   S.allTrips = S.allTrips.filter(function(t){return !String(t.id).startsWith('pdf_');});
