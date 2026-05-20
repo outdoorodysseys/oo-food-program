@@ -1436,8 +1436,10 @@ function buildPacket(id,trip,gs,plan){
     tentBreakdown.push(tents+'T: '+names.join(' + '));
   });
 
+  var bioPax=gs.filter(function(g){return g.bio;}).length;
+
   var gearSummaryHtml='<div class="sb"><div class="sh">&#x1F3D2; Gear Summary</div>'
-    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">'
     // SB box
     +'<div style="border:1.5px solid var(--stone);border-radius:6px;padding:12px">'
     +'<div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:6px">&#x1F6CF; Sleeping Bags + Pads</div>'
@@ -1450,6 +1452,16 @@ function buildPacket(id,trip,gs,plan){
     +'<div style="font-size:22px;font-weight:700;color:var(--forest)">'+tentOO+'<span style="font-size:12px;font-weight:400;color:var(--muted)"> OO tents</span></div>'
     +'<div style="font-size:11px;color:var(--muted);margin-top:4px">'+tentBreakdown.join(' &nbsp;|&nbsp; ')+'</div>'
     +(tentOwn?'<div style="font-size:11px;color:var(--muted)">'+tentOwn+' guests bringing own</div>':'')
+    +'</div>'
+    // Bio add-on box
+    +'<div style="border:1.5px solid '#ede9fe';border-radius:6px;padding:12px">'
+    +'<div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:6px">&#x1F319; Bioluminescence Add-On</div>'
+    +(bioPax>0
+      ?'<div style="font-size:22px;font-weight:700;color:#5b21b6">'+bioPax+'<span style="font-size:12px;font-weight:400;color:var(--muted)"> guests</span></div>'
+      +'<div style="font-size:12px;color:var(--muted);margin-top:2px">'+gs.filter(function(g){return g.bio;}).map(function(g){return g.name.split(' ')[0];}).join(', ')+'</div>'
+      :'<div style="font-size:22px;font-weight:700;color:var(--muted)">0<span style="font-size:12px;font-weight:400"> guests</span></div>'
+      +'<div style="font-size:12px;color:var(--muted);margin-top:2px">None booked</div>'
+    )
     +'</div>'
     +'</div>'
     // Individual gear list
