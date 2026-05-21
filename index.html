@@ -376,21 +376,21 @@ function loadUpcomingTrips(){
 // ── PDF IMPORT ───────────────────────────────────────────────
 function handlePDFUpload(input){
   var file = input.files[0];
-  if(!file) return;
+  if(!file){return;}
   var statusEl = document.getElementById('pdf-status');
-  statusEl.innerHTML = 'Reading PDF...';
+  statusEl.innerHTML = 'Reading PDF&hellip; ('+Math.round(file.size/1024)+'KB)';
+  log('PDF upload: '+file.name+' ('+file.size+' bytes)','ok');
 
   // Set a timeout — if PDF.js hangs, show paste fallback
   var timer = setTimeout(function(){
     statusEl.innerHTML = '&#x26A0; PDF processing timed out.<br>'
       +'<strong>Use the paste method instead:</strong> Open the PDF, press <strong>Cmd+A</strong> then <strong>Cmd+C</strong>, then paste in the box above and click Import Roster.';
     log('PDF timeout — use paste method','err');
-  }, 15000);
+  }, 20000);
 
-  var reader = new FileReader();
-  reader.onload = function(e){
-    var arr = new Uint8Array(e.target.result);
-    var loadingTask = pdfjsLib.getDocument({data: arr, disableWorker: true});
+  function processPDFBuffer(arrayBuffer){
+    var arr = new Uint8Array(arrayBuffer);
+    var loadingTask = pdfjsLib.getDocument({data: arr});
     loadingTask.promise.then(function(pdf){
       var pagePromises = [];
       for(var p=1;p<=pdf.numPages;p++){
@@ -429,13 +429,30 @@ function handlePDFUpload(input){
       statusEl.innerHTML = '&#x26A0; PDF error: '+e.message+'<br>Try the paste method instead.';
       log('PDF error: '+e.message,'err');
     });
-  };
-  reader.onerror = function(){
+  }
+  // Try readAsArrayBuffer, fall back to readAsDataURL if it fails
+  var reader = new FileReader();
+  reader.onload = function(e){ processPDFBuffer(e.target.result); };
+  reader.onerror = function(e){
     clearTimeout(timer);
-    statusEl.textContent = 'Could not read file.';
+    log('FileReader error: '+JSON.stringify(e.target.error),'err');
+    // Try DataURL fallback
+    var r2 = new FileReader();
+    r2.onload = function(ev){
+      var b64 = ev.target.result.split(',')[1];
+      var bin = atob(b64);
+      var buf = new ArrayBuffer(bin.length);
+      var view = new Uint8Array(buf);
+      for(var i=0;i<bin.length;i++) view[i]=bin.charCodeAt(i);
+      processPDFBuffer(buf);
+    };
+    r2.onerror = function(){
+      clearTimeout(timer);
+      statusEl.textContent = 'Could not read PDF. Try the paste method instead.';
+    };
+    r2.readAsDataURL(file);
   };
   reader.readAsArrayBuffer(file);
-  // Note: do NOT clear input.value here — it invalidates the file reference mid-read
 }
 
 function processPastedRoster(){
