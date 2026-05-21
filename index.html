@@ -99,7 +99,12 @@ body{font-family:Arial,sans-serif;background:var(--cream);color:var(--ink)}
   .day-hdr{break-after:avoid;break-inside:avoid}
   .db,.mc{break-inside:avoid}
 
-  /* Keep roster section together on page 1 */
+  /* ── Page 1 two-column layout: roster left, gear right ── */
+  .print-pg1-cols{display:flex;gap:10pt;align-items:flex-start;width:100%}
+  .print-pg1-cols > .sb:first-child{flex:1 1 0;min-width:0}
+  .print-pg1-right{flex:0 0 2.5in;width:2.5in;min-width:2.5in}
+
+  /* Keep each sb section together */
   .sb{break-inside:avoid;padding:4px 0;border-bottom:0.5pt solid #ddd}
   .sb:last-child{border-bottom:none}
 
@@ -132,9 +137,9 @@ body{font-family:Arial,sans-serif;background:var(--cream);color:var(--ink)}
   /* ── Section headings ── */
   .sh{font-size:10px;font-weight:700;color:#000!important;margin-bottom:4px;padding-bottom:2px;border-bottom:1pt solid #000}
 
-  /* ── Gear summary: very compact for print ── */
-  .sb div[style*="grid-template-columns:1fr 1fr"]{gap:4px!important;margin-bottom:4px!important}
-  .sb div[style*="grid-template-columns:1fr 1fr"] > div{padding:4px 6px!important;border:0.5pt solid #ccc!important;background:#fff!important;border-radius:0!important}
+  /* ── Gear summary: stacked single-col in right panel ── */
+  .print-pg1-right .sb div[style*="grid-template-columns:1fr 1fr"]{display:block!important;gap:0!important;margin-bottom:4px!important}
+  .print-pg1-right .sb div[style*="grid-template-columns:1fr 1fr"] > div{display:block!important;margin-bottom:3pt!important;padding:3px 5px!important;border:0.5pt solid #ccc!important;background:#fff!important;border-radius:0!important}
   /* Gear row items */
   .sb div[style*="display:flex;align-items:center;gap:10px"]{padding:2px 0!important;border-bottom:0.25pt solid #eee!important}
   .sb span[style*="font-size:28px"]{font-size:14px!important;min-width:20px!important}
@@ -1777,7 +1782,7 @@ function buildPacket(id,trip,gs,plan){
     +'<div class="ph print-pg1"><div class="pt">'+trip.activityName+'</div>'
     +'<div class="pm"><span>&#x1F4C5; '+sd+' &ndash; '+ed+'</span><span>&#x1F465; '+n+' guests</span><span>&#x1F4C6; '+days+' days</span><span>&#x1F37D; '+totalMeals+' meals</span><span>Generated '+pd+'</span></div></div>'
     +'<div style="padding:18px">'
-    +'<div class="print-pg1 print-pg1-end">'+roster+gearSummaryHtml+'</div>'
+    +'<div class="print-pg1 print-pg1-end"><div class="print-pg1-cols">'+roster+'<div class="print-pg1-right">'+gearSummaryHtml+'</div></div></div>'
     +'<div class="print-menu sb"><div class="sh">&#x1F37D; Daily Menu</div>'+menuHtml+'</div>'
     +'<div class="print-shopping">'+shoppingSection+'</div>'
     +'</div></div>';
