@@ -427,7 +427,7 @@ function handlePDFUpload(input){
     }).catch(function(e){
       clearTimeout(timer);
       if(statusEl&&statusEl.innerHTML!==undefined)statusEl.innerHTML = '&#x26A0; PDF error: '+e.message+'<br>Try the paste method instead.';
-      log('PDF error: '+e.message,'err');
+      log('PDF error: '+e.message+' | stack:'+( e.stack?e.stack.split('\n').slice(0,4).join(' >> '):''),'err');
     });
   }
   // Try readAsArrayBuffer, fall back to readAsDataURL if it fails
@@ -960,7 +960,7 @@ function addPDF2(input){
     }).catch(function(e){
       clearTimeout(timer);
       if(statusEl&&statusEl.innerHTML!==undefined)statusEl.innerHTML='&#x26A0; PDF error: '+e.message+'. Use paste instead.';
-      log('PDF2 error: '+e.message,'err');
+      log('PDF2 error: '+e.message+' | stack:'+(e.stack?e.stack.split('\n').slice(0,4).join(' >> '):''),'err');
     });
   }
   var reader=new FileReader();
