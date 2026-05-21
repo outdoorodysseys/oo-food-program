@@ -435,7 +435,7 @@ function handlePDFUpload(input){
     statusEl.textContent = 'Could not read file.';
   };
   reader.readAsArrayBuffer(file);
-  input.value='';
+  // Note: do NOT clear input.value here — it invalidates the file reference mid-read
 }
 
 function processPastedRoster(){
