@@ -484,7 +484,7 @@ function processPDFText(text, statusEl){
   var tripNotesObj = extractTripNotes(text);
   // Parse products/add-ons directly from raw text
   var tripProducts={};
-  (function(){var inP=false;text.split('\n').forEach(function(line){line=line.trim();if(/^Products.Custom/i.test(line)){inP=true;return;}if(inP){if(/^Reservation Questions/i.test(line)){inP=false;return;}if(/^Name\s+Quantity/i.test(line))return;var pm=line.match(/^(.+?)\s+(\d+)\s*$/);var k=pm[1].trim();
+  (function(){var inP=false;text.split('\n').forEach(function(line){line=line.trim();if(/^Products.Custom/i.test(line)){inP=true;return;}if(inP){if(/^Reservation Questions/i.test(line)){inP=false;return;}if(/^Name\s+Quantity/i.test(line))return;var pm=line.match(/^(.+?)\s+(\d+)\s*$/);if(!pm)return;var k=pm[1].trim();
 if(k.length>2&&isNaN(parseInt(k))&&!/email:|phone:|@|signed waivers/i.test(k)&&!/ - /.test(k))tripProducts[k]=parseInt(pm[2]);}});})();
   var trip = {id:tripId,activityId:tripId,activityName:tripName,startTime:startTime,endTime:endTime,numberGoing:guests.length,notes:tripNotesObj.notes,clientNotes:tripNotesObj.clientNotes,products:tripProducts};
   // Always clear prior imported rosters — prevents stale data from persisting
