@@ -395,23 +395,24 @@ function handlePDFUpload(input){
       var pagePromises = [];
       for(var p=1;p<=pdf.numPages;p++){
         pagePromises.push(pdf.getPage(p).then(function(page){
-          return page.getTextContent({includeMarkedContent:false}).then(function(tc){
-            // Reconstruct lines using position data — items on same Y = same line
+          return page.getTextContent().then(function(tc){
+            // Reconstruct lines using Y position — items on same Y = same line
             var lines = [];
             var currentLine = [];
             var lastY = null;
-            var YTOL = 3; // pixels tolerance for same line
-            tc.items.forEach(function(item){
-              if(!item.str) return;
-              var y = item.transform ? Math.round(item.transform[5]) : 0;
-              if(lastY === null) lastY = y;
-              if(Math.abs(y - lastY) > YTOL) {
-                // New line
-                if(currentLine.length) lines.push(currentLine.join(' ').trim());
-                currentLine = [];
-                lastY = y;
-              }
-              currentLine.push(item.str);
+            var YTOL = 3;
+            (tc.items||[]).forEach(function(item){
+              try {
+                if(!item || typeof item.str !== 'string' || !item.str) return;
+                var y = (item.transform && item.transform.length > 5) ? Math.round(item.transform[5]) : 0;
+                if(lastY === null) lastY = y;
+                if(Math.abs(y - lastY) > YTOL) {
+                  if(currentLine.length) lines.push(currentLine.join(' ').trim());
+                  currentLine = [];
+                  lastY = y;
+                }
+                currentLine.push(item.str);
+              } catch(itemErr) {}
             });
             if(currentLine.length) lines.push(currentLine.join(' ').trim());
             return lines.filter(Boolean).join('\n');
@@ -941,12 +942,14 @@ function addPDF2(input){
         return pdf.getPage(p).then(function(pg){
           return pg.getTextContent({includeMarkedContent:false}).then(function(tc){
             var lines=[],cur=[],lastY=null,YTOL=3;
-            tc.items.forEach(function(item){
-              if(!item.str)return;
-              var y=item.transform?Math.round(item.transform[5]):0;
-              if(lastY===null)lastY=y;
-              if(Math.abs(y-lastY)>YTOL){if(cur.length)lines.push(cur.join(' ').trim());cur=[];lastY=y;}
-              cur.push(item.str);
+            (tc.items||[]).forEach(function(item){
+              try {
+                if(!item||typeof item.str!=='string'||!item.str)return;
+                var y=(item.transform&&item.transform.length>5)?Math.round(item.transform[5]):0;
+                if(lastY===null)lastY=y;
+                if(Math.abs(y-lastY)>YTOL){if(cur.length)lines.push(cur.join(' ').trim());cur=[];lastY=y;}
+                cur.push(item.str);
+              } catch(itemErr){}
             });
             if(cur.length)lines.push(cur.join(' ').trim());
             return lines.filter(Boolean).join('\n');
