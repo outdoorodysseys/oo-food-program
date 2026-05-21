@@ -926,35 +926,60 @@ function addPasted2(){
 function addPDF2(input){
   var file=input.files[0];
   if(!file)return;
-  var statusEl=document.getElementById('pdf2-status');
-  statusEl.innerHTML='Reading PDF...';
+  var statusEl=document.getElementById('pdf2-status')||{innerHTML:'',textContent:'',style:{display:'block'}};
+  statusEl.innerHTML='Reading PDF&hellip; ('+Math.round(file.size/1024)+'KB)';
+  log('PDF2 upload: '+file.name+' ('+file.size+' bytes)','ok');
   var timer=setTimeout(function(){
-    statusEl.innerHTML='&#x26A0; PDF timed out. Use the paste option instead.';
-  },15000);
-  var reader=new FileReader();
-  reader.onload=function(e){
-    var arr=new Uint8Array(e.target.result);
-    pdfjsLib.getDocument({data:arr,disableWorker:true}).promise.then(function(pdf){
+    if(statusEl.innerHTML!==undefined)statusEl.innerHTML='&#x26A0; PDF timed out. Use the paste option instead.';
+  },20000);
+  function processBuf(buf){
+    var arr=new Uint8Array(buf);
+    pdfjsLib.getDocument({data:arr}).promise.then(function(pdf){
       var pp=[];
       for(var p=1;p<=pdf.numPages;p++) pp.push(p);
       return Promise.all(pp.map(function(p){
         return pdf.getPage(p).then(function(pg){
-          return pg.getTextContent().then(function(tc){
-            return tc.items.map(function(i){return i.str;}).join('\n');
+          return pg.getTextContent({includeMarkedContent:false}).then(function(tc){
+            var lines=[],cur=[],lastY=null,YTOL=3;
+            tc.items.forEach(function(item){
+              if(!item.str)return;
+              var y=item.transform?Math.round(item.transform[5]):0;
+              if(lastY===null)lastY=y;
+              if(Math.abs(y-lastY)>YTOL){if(cur.length)lines.push(cur.join(' ').trim());cur=[];lastY=y;}
+              cur.push(item.str);
+            });
+            if(cur.length)lines.push(cur.join(' ').trim());
+            return lines.filter(Boolean).join('\n');
           });
         });
       }));
     }).then(function(pts){
       clearTimeout(timer);
-      statusEl.textContent='';
+      if(statusEl)statusEl.textContent='';
       processPDFText(pts.join('\n'),statusEl);
     }).catch(function(e){
       clearTimeout(timer);
-      statusEl.innerHTML='&#x26A0; PDF error: '+e.message+'. Use paste instead.';
+      if(statusEl&&statusEl.innerHTML!==undefined)statusEl.innerHTML='&#x26A0; PDF error: '+e.message+'. Use paste instead.';
+      log('PDF2 error: '+e.message,'err');
     });
+  }
+  var reader=new FileReader();
+  reader.onload=function(e){processBuf(e.target.result);};
+  reader.onerror=function(){
+    clearTimeout(timer);
+    var r2=new FileReader();
+    r2.onload=function(ev){
+      var b64=ev.target.result.split(',')[1],bin=atob(b64),buf=new ArrayBuffer(bin.length),v=new Uint8Array(buf);
+      for(var i=0;i<bin.length;i++)v[i]=bin.charCodeAt(i);
+      processBuf(buf);
+    };
+    r2.onerror=function(){
+      clearTimeout(timer);
+      if(statusEl)statusEl.textContent='Could not read PDF. Try paste instead.';
+    };
+    r2.readAsDataURL(file);
   };
   reader.readAsArrayBuffer(file);
-  input.value='';
 }
 
 function toggleTrip(id,el){var cb=document.getElementById('cb-'+id);cb.checked=!cb.checked;el.classList.toggle('sel',cb.checked);updateSelActions();}
