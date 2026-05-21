@@ -1521,7 +1521,8 @@ function buildPacket(id,trip,gs,plan){
   Object.keys(prods).forEach(function(name){
     var matched=false;
     ADDONS.forEach(function(a){if(a.match.test(name)){addonCounts[a.key]+=prods[name];matched=true;}});
-    if(!matched) extraProds.push({name:name,qty:prods[name]});
+    // Sleeping Kit is already shown in SB rental count — skip it here
+    if(!matched && !/sleeping kit/i.test(name)) extraProds.push({name:name,qty:prods[name]});
   });
   var addonRows=ADDONS.map(function(a){
     var qty=addonCounts[a.key],hit=qty>0;
