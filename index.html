@@ -82,7 +82,7 @@ body{font-family:Arial,sans-serif;background:var(--cream);color:var(--ink)}
 .sl-qty{font-size:11px;color:var(--sage);min-width:50px;font-weight:700}
 .sl-src{font-size:9px;color:var(--muted);margin-left:auto;white-space:nowrap}
 .sl-gp{background:#dbeafe;color:#1e40af;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px;white-space:nowrap}
-@page{margin:0.5in;border:1.5pt solid #1a3d2b;padding:0}
+@page{margin:0.4in;border:1.5pt solid #1a3d2b;padding:0}
 @media print{
   .sidebar,.nav{display:none!important}
   html,body,.main,.content,.pb,.pb>div,.pb>div>div{background:#fff!important}
@@ -92,80 +92,91 @@ body{font-family:Arial,sans-serif;background:var(--cream);color:var(--ink)}
   .content{overflow:visible!important}
   .no-print{display:none!important}
 
-  /* ── Page structure ── */
+  /* ── Page 1: roster + gear must not break ── */
   .print-pg1-end{break-after:page}
   .print-menu{break-before:page}
   .print-shopping{break-before:page}
   .day-hdr{break-after:avoid;break-inside:avoid}
   .db,.mc{break-inside:avoid}
 
-  /* Remove outer container border — can't close cleanly at page breaks */
+  /* Keep roster section together on page 1 */
+  .sb{break-inside:avoid;padding:4px 0;border-bottom:0.5pt solid #ddd}
+  .sb:last-child{border-bottom:none}
+
+  /* Remove decorative borders that break badly */
   .pb > div{border:none!important;border-radius:0!important}
   .pb > div > div[style*="padding:18px"]{padding:0!important}
 
-  /* ── Trip header: white bg, border bottom instead of solid bg ── */
+  /* ── Trip header ── */
   .ph{break-inside:avoid;break-after:avoid;
     background:#fff!important;color:#000!important;
-    border-bottom:2pt solid #000;padding:8px 0 6px 0;margin-bottom:8px}
-  .ph .pt{color:#000!important;font-size:14pt}
-  .ph .pm{color:#444!important}
+    border-bottom:2pt solid #000;padding:6px 0 4px 0;margin-bottom:6px}
+  .ph .pt{color:#000!important;font-size:13pt}
+  .ph .pm{color:#444!important;font-size:9px}
   .ph .pm span{color:#444!important}
 
-  /* ── Roster: ink-friendly ── */
-  .rt{font-size:9px;width:100%}
-  .rt th{background:#fff!important;color:#000!important;font-size:8px;padding:3px 6px;
-    border-bottom:1pt solid #000;border-top:1pt solid #000}
-  .rt td{padding:3px 6px;font-size:9px;background:#fff!important}
-  .rt td div{font-size:9px}
-  .rt td div:first-child{font-weight:700}
-  .rt td[colspan]{background:#f5f5f5!important;color:#000!important;font-size:8px;padding:2px 8px;font-weight:700}
-  .rt tr:nth-child(even) td{background:#f9f9f9!important}
+  /* ── Roster: compact ── */
+  .rt{font-size:8px;width:100%;border-collapse:collapse}
+  .rt th{background:#f0f0f0!important;color:#000!important;font-size:7.5px;padding:2px 5px;
+    border-bottom:1pt solid #000;border-top:1pt solid #000;text-transform:uppercase;letter-spacing:.03em}
+  .rt td{padding:2px 5px;font-size:8px;background:#fff!important;border-bottom:0.25pt solid #e0e0e0}
+  .rt td div{font-size:8px;line-height:1.2}
+  .rt td div:first-child{font-weight:700;font-size:8.5px}
+  .rt td[colspan]{background:#eee!important;color:#000!important;font-size:7.5px;padding:2px 6px;font-weight:700}
+  .rt tr:nth-child(even) td{background:#fafafa!important}
+  .fl{font-size:7px;padding:1px 3px;border-radius:2px}
 
-  .fl{font-size:8px;padding:1px 3px}
+  /* ── Alert banner ── */
+  .al{font-size:8px;padding:3px 6px;margin-bottom:4px;background:#fff!important;border:0.5pt solid #999}
 
-  /* ── Alert banner: light ── */
-  .al{font-size:9px;padding:4px 8px;margin-bottom:6px;background:#fff!important;border:0.5pt solid #999}
+  /* ── Section headings ── */
+  .sh{font-size:10px;font-weight:700;color:#000!important;margin-bottom:4px;padding-bottom:2px;border-bottom:1pt solid #000}
 
-  /* ── Section headings: no bg ── */
-  .sh{font-size:11px;font-weight:700;color:#000!important;margin-bottom:5px;padding-bottom:3px;border-bottom:1pt solid #000}
-  .sb{padding:6px 0;border-bottom:0.5pt solid #ddd}
-  .sb:last-child{border-bottom:none}
+  /* ── Gear summary: very compact for print ── */
+  .sb div[style*="grid-template-columns:1fr 1fr"]{gap:4px!important;margin-bottom:4px!important}
+  .sb div[style*="grid-template-columns:1fr 1fr"] > div{padding:4px 6px!important;border:0.5pt solid #ccc!important;background:#fff!important;border-radius:0!important}
+  /* Gear row items */
+  .sb div[style*="display:flex;align-items:center;gap:10px"]{padding:2px 0!important;border-bottom:0.25pt solid #eee!important}
+  .sb span[style*="font-size:28px"]{font-size:14px!important;min-width:20px!important}
+  .sb div[style*="font-size:12px;font-weight"]{font-size:8px!important}
+  .sb div[style*="font-size:10px;color:var(--muted)"]{font-size:7px!important}
+  /* Gear section header */
+  .sb div[style*="font-size:10px;text-transform:uppercase"]{font-size:7px!important;margin-bottom:2px!important}
+  /* Add-ons rows */
+  .sb div[style*="display:flex;align-items:center;justify-content:space-between"]{padding:2px 5px!important;margin-bottom:1px!important;font-size:8px!important}
+  .sb span[style*="font-size:15px;font-weight:800"]{font-size:11px!important}
+  .sb span[style*="font-size:11px"]{font-size:8px!important}
+  /* Gear add-ons container */
+  .sb div[style*="border:1.5px solid var(--stone);border-radius:6px;padding:10px 12px"]{padding:4px 6px!important;margin-bottom:4px!important;border:0.5pt solid #ccc!important;border-radius:0!important}
+  /* Individual gear list below boxes */
+  .sb div[style*="font-size:11px;color:var(--muted)"] span{font-size:7.5px!important}
 
-  /* ── Gear summary: clean ── */
-  .sb div[style*="grid-template-columns:1fr 1fr"]{gap:6px;margin-bottom:6px}
-  .sb div[style*="grid-template-columns:1fr 1fr"] > div{padding:5px 8px;border:0.5pt solid #ccc;background:#fff!important}
-  .sb div[style*="font-size:22px"]{font-size:14px!important;color:#000!important}
-  .sb div[style*="font-size:20px"]{font-size:14px!important;color:#000!important}
-  .sb div[style*="font-size:12px;color:var(--muted);margin-top"]{font-size:8px!important}
-  .sb div[style*="font-size:11px;color:var(--muted)"]{font-size:8px!important}
-
-  /* ── Meal cards: no dark headers ── */
-  .mc{border:0.5pt solid #ccc!important;break-inside:avoid;margin-bottom:8px}
-  .mch{background:#fff!important;border-bottom:0.5pt solid #ccc!important;padding:5px 10px}
-  .mcn{color:#000!important}
-  .mck{background:#fff!important;color:#000!important;border:0.5pt solid #000;font-size:8px}
+  /* ── Meal cards ── */
+  .mc{border:0.5pt solid #ccc!important;break-inside:avoid;margin-bottom:6px}
+  .mch{background:#fff!important;border-bottom:0.5pt solid #ccc!important;padding:4px 8px}
+  .mcn{color:#000!important;font-size:10px!important}
+  .mck{background:#fff!important;color:#000!important;border:0.5pt solid #000;font-size:7px}
   .day-hdr{background:#fff!important;color:#000!important;border-bottom:1pt solid #000;
-    font-weight:700;padding:5px 10px!important;font-size:11px}
+    font-weight:700;padding:4px 8px!important;font-size:10px}
 
-  /* ── Shopping list: compact, 3-col, ink-friendly ── */
-  .print-shopping{font-size:8px}
+  /* ── Shopping list: compact 3-col ── */
+  .print-shopping{font-size:7.5px}
   .print-shopping .sl-grid{grid-template-columns:1fr 1fr 1fr!important;gap:1px}
-  .print-shopping .sl-item{padding:2px 4px;font-size:8px;background:#fff!important}
-  .print-shopping .sl-qty{font-size:8px;min-width:28px;color:#000!important}
-  .print-shopping .sl-hdr{font-size:7.5px;padding:2px 6px}
-  .print-shopping .sl-sec{margin-bottom:5px;break-inside:avoid}
-  .print-shopping .sh{font-size:11px;color:#000!important}
-  .print-shopping .sb{padding:4px 0}
-  .print-shopping div[style*="font-size:11px;color:var(--muted);margin-bottom"]{font-size:8px;margin-bottom:4px!important}
-  .print-shopping div[style*="background:#eff6ff"]{padding:4px 6px;font-size:8px;background:#fff!important;border:0.5pt solid #999}
-  .print-shopping .sl-gp{}
+  .print-shopping .sl-item{padding:1px 3px;font-size:7.5px;background:#fff!important}
+  .print-shopping .sl-qty{font-size:7.5px;min-width:26px;color:#000!important}
+  .print-shopping .sl-hdr{font-size:7px;padding:1px 5px}
+  .print-shopping .sl-sec{margin-bottom:4px;break-inside:avoid}
+  .print-shopping .sh{font-size:10px;color:#000!important}
+  .print-shopping .sb{padding:3px 0}
+  .print-shopping div[style*="font-size:11px;color:var(--muted);margin-bottom"]{font-size:7.5px;margin-bottom:3px!important}
+  .print-shopping div[style*="background:#eff6ff"]{padding:3px 5px;font-size:7.5px;background:#fff!important;border:0.5pt solid #999}
 
   /* ── Ingredients list ── */
-  .il li{color:#000!important}
-  .nt{background:#f9f9f9!important;color:#333!important}
-  .md{background:#fff!important;border:0.5pt solid #999;color:#333!important}
+  .il li{color:#000!important;font-size:8px}
+  .nt{background:#f9f9f9!important;color:#333!important;font-size:8px}
+  .md{background:#fff!important;border:0.5pt solid #999;color:#333!important;font-size:8px}
 
-  /* Force all text black, backgrounds white */
+  /* Force colors */
   *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   p,span,div,li,td,th{color:#000}
 }
