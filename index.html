@@ -377,13 +377,13 @@ function loadUpcomingTrips(){
 function handlePDFUpload(input){
   var file = input.files[0];
   if(!file){return;}
-  var statusEl = document.getElementById('pdf-status');
+  var statusEl = document.getElementById('pdf-status') || {innerHTML:'',textContent:'',style:{display:'block'}};
   statusEl.innerHTML = 'Reading PDF&hellip; ('+Math.round(file.size/1024)+'KB)';
   log('PDF upload: '+file.name+' ('+file.size+' bytes)','ok');
 
   // Set a timeout — if PDF.js hangs, show paste fallback
   var timer = setTimeout(function(){
-    statusEl.innerHTML = '&#x26A0; PDF processing timed out.<br>'
+    if(statusEl&&statusEl.innerHTML!==undefined)statusEl.innerHTML = '&#x26A0; PDF processing timed out.<br>'
       +'<strong>Use the paste method instead:</strong> Open the PDF, press <strong>Cmd+A</strong> then <strong>Cmd+C</strong>, then paste in the box above and click Import Roster.';
     log('PDF timeout — use paste method','err');
   }, 20000);
@@ -422,11 +422,11 @@ function handlePDFUpload(input){
     }).then(function(pageTexts){
       clearTimeout(timer);
       var text = pageTexts.join('\n');
-      statusEl.textContent = '';
+      if(statusEl)statusEl.textContent = '';
       processPDFText(text, statusEl);
     }).catch(function(e){
       clearTimeout(timer);
-      statusEl.innerHTML = '&#x26A0; PDF error: '+e.message+'<br>Try the paste method instead.';
+      if(statusEl&&statusEl.innerHTML!==undefined)statusEl.innerHTML = '&#x26A0; PDF error: '+e.message+'<br>Try the paste method instead.';
       log('PDF error: '+e.message,'err');
     });
   }
@@ -493,7 +493,7 @@ if(k.length>2&&isNaN(parseInt(k))&&!/email:|phone:|@|signed waivers/i.test(k)&&!
   var days = getDays(trip);
   S.plans[tripId] = [];
   for(var i=0;i<days;i++){var day={};MTYPES.forEach(function(t){day[t]='';});S.plans[tripId].push(day);}
-  statusEl.textContent = 'Imported '+guests.length+' guests for '+tripName;
+  if(statusEl)statusEl.textContent = 'Imported '+guests.length+' guests for '+tripName;
   log('PDF: '+guests.length+' guests, '+tripName,'ok');
   // Persist to sessionStorage so page reloads don't wipe guest data
   try {
@@ -834,7 +834,7 @@ function addManual(){
   var id=(document.getElementById('manual-id')||{}).value.trim();
   if(!id){alert('Enter an Activity ID');return;}
   var statusEl=document.getElementById('load-status');
-  statusEl.style.display='block';
+  if(statusEl&&statusEl.style)statusEl.style.display='block';
   statusEl.textContent='Loading trip '+id+'...';
   // Fetch directly from Flybook using browser session
   flybookFetch('/activities/scheduled/'+id).then(function(trip){
