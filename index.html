@@ -477,6 +477,8 @@ function processPastedRoster(){
 }
 
 function processPDFText(text, statusEl){
+  // Normalize multiple spaces to single (some PDFs produce double-spaced text)
+  text = text.replace(/ {2,}/g, " ");
   window._lastRawText=text;
   // text = text.replace(/\r\n/g,'\n').replace(/\r/g,'\n');
   var guests = parseFlybookRoster(text);
@@ -667,6 +669,7 @@ function parseFlybookRoster(text){
   (function(){
     // Insert newlines before known patterns to handle PDF merge artifacts
     var raw = text
+      .replace(/ {2,}/g, ' ')
       .replace(/(\d)(Signed Waivers)/gi, '$1\n$2')
       .replace(/(Release Form|General Release Form)([A-Z])/g, '$1\n$2')
       .replace(/(\.com|\.vom)(Release|General|Signed)/gi, '$1\n$2');
