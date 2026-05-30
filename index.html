@@ -416,21 +416,32 @@ function handlePDFUpload(input){
             var lines = [];
             var currentLine = [];
             var lastY = null;
+            var lastX = null;
             var YTOL = 3;
             (tc.items||[]).forEach(function(item){
               try {
                 if(!item || typeof item.str !== 'string' || !item.str) return;
                 var y = (item.transform && item.transform.length > 5) ? Math.round(item.transform[5]) : 0;
+                var x = (item.transform && item.transform.length > 4) ? item.transform[4] : 0;
+                var w = item.width || 0;
                 if(lastY === null) lastY = y;
                 if(Math.abs(y - lastY) > YTOL) {
-                  if(currentLine.length) lines.push(currentLine.join(' ').trim());
+                  if(currentLine.length) lines.push(currentLine.map(function(c){return c.str;}).join(''));
                   currentLine = [];
                   lastY = y;
+                  lastX = null;
                 }
-                currentLine.push(item.str);
+                // Determine separator: space if gap > ~1.5pt, nothing if tightly packed chars
+                var sep = '';
+                if(lastX !== null) {
+                  var gap = x - lastX;
+                  sep = (gap > 1.5) ? ' ' : '';
+                }
+                currentLine.push({str: (sep + item.str), x: x, w: w});
+                lastX = x + w;
               } catch(itemErr) {}
             });
-            if(currentLine.length) lines.push(currentLine.join(' ').trim());
+            if(currentLine.length) lines.push(currentLine.map(function(c){return c.str;}).join('').trim());
             return lines.filter(Boolean).join('\n');
           });
         }));
