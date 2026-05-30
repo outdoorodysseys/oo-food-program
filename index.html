@@ -432,10 +432,11 @@ function handlePDFUpload(input){
                   lastX = null;
                 }
                 // Determine separator: space if gap > ~1.5pt, nothing if tightly packed chars
+                // item.str may already have spaces; only add sep if gap > 3pt AND str doesn't already start with space
                 var sep = '';
                 if(lastX !== null) {
                   var gap = x - lastX;
-                  sep = (gap > 1.5) ? ' ' : '';
+                  if(gap > 3 && item.str.charAt(0) !== ' ') sep = ' ';
                 }
                 currentLine.push({str: (sep + item.str), x: x, w: w});
                 lastX = x + w;
@@ -494,7 +495,6 @@ function processPastedRoster(){
 
 function processPDFText(text, statusEl){
   window._lastRawText=text;
-  log("PDF lines[0-5]: "+text.split("\n").slice(0,8).join(" | "),"ok");
   // text = text.replace(/\r\n/g,'\n').replace(/\r/g,'\n');
   var guests = parseFlybookRoster(text);
   if(!guests.length){
@@ -971,16 +971,24 @@ function addPDF2(input){
         return pdf.getPage(p).then(function(pg){
           return pg.getTextContent({includeMarkedContent:false}).then(function(tc){
             var lines=[],cur=[],lastY=null,YTOL=3;
+            var lastXb=null;
             (tc.items||[]).forEach(function(item){
               try {
                 if(!item||typeof item.str!=='string'||!item.str)return;
                 var y=(item.transform&&item.transform.length>5)?Math.round(item.transform[5]):0;
+                var x=(item.transform&&item.transform.length>4)?item.transform[4]:0;
+                var w=item.width||0;
                 if(lastY===null)lastY=y;
-                if(Math.abs(y-lastY)>YTOL){if(cur.length)lines.push(cur.join(' ').trim());cur=[];lastY=y;}
-                cur.push(item.str);
+                if(Math.abs(y-lastY)>YTOL){
+                  if(cur.length)lines.push(cur.map(function(c){return c.s;}).join('').trim());
+                  cur=[];lastY=y;lastXb=null;
+                }
+                var sep=(lastXb!==null&&(x-lastXb)>3&&item.str.charAt(0)!==' ')?' ':'';
+                cur.push({s:sep+item.str});
+                lastXb=x+w;
               } catch(itemErr){}
             });
-            if(cur.length)lines.push(cur.join(' ').trim());
+            if(cur.length)lines.push(cur.map(function(c){return c.s;}).join('').trim());
             return lines.filter(Boolean).join('\n');
           });
         });
