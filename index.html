@@ -483,8 +483,7 @@ function processPastedRoster(){
 
 function processPDFText(text, statusEl){
   window._lastRawText=text;
-  log("PDF lines[0-5]: "+text.split("
-").slice(0,8).join(" | "),"ok");
+  log("PDF lines[0-5]: "+text.split("\n").slice(0,8).join(" | "),"ok");
   // text = text.replace(/\r\n/g,'\n').replace(/\r/g,'\n');
   var guests = parseFlybookRoster(text);
   if(!guests.length){
