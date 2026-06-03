@@ -1330,7 +1330,8 @@ function generateAll(){
 
 function buildPacket(id,trip,gs,plan){
   var guestCount=trip.numberGoing||gs.length||1;
-  var n=guestCount+1; // +1 for guide
+  var numGuides=guestCount>=9?2:1; // 1 guide <9 guests, 2 guides 9-16
+  var n=guestCount+numGuides;
 
   // Build inventory lookup FIRST so findInv works throughout
   var invLookup={};
@@ -1472,7 +1473,7 @@ function buildPacket(id,trip,gs,plan){
       var spb=r['Shop-Prep Items']&&r['Shop-Prep Items']!=='N/A'?r['Shop-Prep Items'].split(',').map(function(s){return '<span class="fl fg">&#x1F3EA; '+s.trim()+'</span>';}).join(''):'';
       dayHtml+='<div class="mc"><div class="mch" style="background:'+(CC[mt]||'#f8f8f8')+'">'
         +'<div class="mcn">'+r['Recipe Name']+'</div><span class="mck">'+mt+'</span></div>'
-        +'<div class="mcb"><div><div style="font-size:9px;text-transform:uppercase;color:var(--muted);margin-bottom:3px">Ingredients &middot; '+guestCount+' guests (+1 guide)</div>'
+        +'<div class="mcb"><div><div style="font-size:9px;text-transform:uppercase;color:var(--muted);margin-bottom:3px">Ingredients &middot; '+guestCount+' guests (+'+numGuides+' guide'+(numGuides>1?'s':'')+')</div>'
         +'<ul class="il">'+ings+'</ul>'+(spb?'<div style="margin-top:5px">'+spb+'</div>':'')+'</div>'
         +'<div>'+(r['Prep Notes']?'<div class="nt">'+r['Prep Notes']+'</div>':'')
         +mods.map(function(m){return '<div class="md">&#x26A0; '+m+'</div>';}).join('')+'</div></div></div>';
