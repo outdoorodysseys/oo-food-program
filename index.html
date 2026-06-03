@@ -100,6 +100,7 @@ body{font-family:Arial,sans-serif;background:var(--cream);color:var(--ink)}
   .db,.mc{break-inside:avoid}
 
   /* ── Page 1 two-column layout: roster left, gear right ── */
+  .print-pg1{overflow:hidden}
   .print-pg1-cols{display:flex;gap:10pt;align-items:flex-start;width:100%}
   .print-pg1-cols > .sb:first-child{flex:1 1 0;min-width:0}
   .print-pg1-right{flex:0 0 2.3in;width:2.3in;min-width:2.3in}
@@ -1306,6 +1307,34 @@ function autoAssignMeals(id) {
 }
 
 // ── PACKET GENERATION ────────────────────────────────────────
+function fitPg1ToPage(){
+  // A4/Letter at 0.4in margins = 9.2in printable height = 883px at 96dpi
+  // But Chrome prints at 96dpi so 1px = 1px in print
+  var PAGE_H_PX = 883; // 9.2in * 96dpi
+  var PAGE_W_PX = 691; // 7.2in * 96dpi (letter 8.5in - 0.8in margins * 96)
+  document.querySelectorAll('.print-pg1').forEach(function(pg){
+    // Reset any prior transform
+    pg.style.transform = '';
+    pg.style.transformOrigin = '';
+    var cols = pg.querySelector('.print-pg1-cols');
+    if(!cols) return;
+    var h = cols.scrollHeight;
+    var w = cols.scrollWidth;
+    if(h <= PAGE_H_PX && w <= PAGE_W_PX) return; // already fits
+    var scaleH = PAGE_H_PX / h;
+    var scaleW = PAGE_W_PX / w;
+    var scale = Math.min(scaleH, scaleW, 1);
+    if(scale < 0.4) scale = 0.4; // floor — never go below 40%
+    cols.style.transform = 'scale('+scale+')';
+    cols.style.transformOrigin = 'top left';
+    cols.style.width = (100/scale)+'%';
+    cols.style.marginBottom = ((h * scale) - h)+'px';
+    // Set the pg1 height so it doesn't overlap next section
+    pg.style.height = (h * scale)+'px';
+    pg.style.overflow = 'hidden';
+  });
+}
+
 function generateAll(){
   var hasMeal=false;
   S.selectedIds.forEach(function(id){(S.plans[id]||[]).forEach(function(day){MTYPES.forEach(function(t){if(day[t])hasMeal=true;});});});
@@ -1325,6 +1354,8 @@ function generateAll(){
     document.getElementById('con').innerHTML='<div class="pb">'+html+'</div>';
     document.getElementById('gbtn').disabled=false;
     log('All packets built','ok');
+    // Scale each page-1 block to fit a single print page
+    setTimeout(fitPg1ToPage, 100);
   });
 }
 
