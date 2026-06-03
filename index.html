@@ -563,7 +563,7 @@ function parseFlybookRoster(text){
 
   // Step 1: Extract clients from "Name - Email: x - Phone: x - Age: x" (spaced or merged)
   var clients=[], byEmail={}, byNorm={};
-  var cRe=/([A-Za-z][a-zA-Z ]*?)\s*-\s*Email:\s*(\S+)\s*-\s*Phone:\s*(\S+)\s*-\s*Age:\s*(\d+)/g;
+  var cRe=/([A-Za-z][a-zA-Z ]*?)\s*-\s*Email:\s*(\S+)\s*-\s*Phone:\s*(\S+)\s*-\s*Age:\s*(\d+|N\/A)/g;
   var cm;
   while((cm=cRe.exec(text))!==null){
     var c={name:cm[1].trim(),email:cm[2].trim(),phone:cm[3]==='N/A'?'':cm[3].trim(),age:cm[4]};
@@ -759,9 +759,16 @@ function parseFlybookRoster(text){
       // If blockName is empty (e.g. "Guest #1 Name" -> stripped to ""), match by email only
       if(!blockName||/^(Paddler|Staff|Admin|\d)/i.test(blockName)){
         if(!email) return;
-        // Try to find client by email
+        // Try to find client by email — prefer guests who aren't the booker
         var cemail=byEmail[email];
         if(!cemail) return; // can't identify guest at all
+        // If multiple clients share this email (booker + companion), pick the one
+        // whose name hasn't been used as a block name yet
+        var sameMail=clients.filter(function(c){return c.email.toLowerCase()===email;});
+        if(sameMail.length>1){
+          var unused=sameMail.find(function(c){return !used[norm(c.name)];});
+          if(unused) cemail=unused;
+        }
         blockName=cemail.name;
       }
       var client=findClient(blockName,email);
