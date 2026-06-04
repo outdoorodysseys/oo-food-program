@@ -1376,7 +1376,7 @@ function buildPacket(id,trip,gs,plan){
 
   function bad(s){return !s||['n/a','no','none','nope','n','na'].indexOf((s||'').toLowerCase().trim())>-1;}
 
-  function guestRow(g) {
+  function guestRow(g, grpLabel) {
     var diet=g.diet||g.dietCommon||'None';
     var df='';
     if(diet&&diet!=='None'&&diet!=='NONE')
@@ -1393,8 +1393,10 @@ function buildPacket(id,trip,gs,plan){
     var extras='';
     var comp=(g.companions||'').replace(/[.,]$/,'').trim();if(comp&&!bad(comp)&&comp.toLowerCase()!=='no'&&!comp.toLowerCase().startsWith('no,'))extras+='<div style="font-size:10px;color:var(--muted)">&#x1F91D; '+comp.substring(0,60)+'</div>';
     if(g.notes&&!bad(g.notes))extras+='<div style="font-size:10px;color:var(--muted)">&#x1F4DD; '+g.notes.substring(0,80)+'</div>';
-    return '<tr style="vertical-align:top">'
-      +'<td><div style="font-size:14px;font-weight:700">'+g.name+'</div>'
+    var trStyle='vertical-align:top'+(grpLabel?';border-top:2px solid var(--forest)':'');
+    return '<tr style="'+trStyle+'">'
+      +'<td>'+(grpLabel?'<div style="font-size:8px;font-weight:700;color:var(--forest);text-transform:uppercase;letter-spacing:.04em;margin-bottom:1px">&#x1F3F7; '+grpLabel+'</div>':'')
+      +'<div style="font-size:14px;font-weight:700">'+g.name+'</div>'
       +(g.phone?'<div style="font-size:11px;color:var(--muted)">'+formatPhone(g.phone)+'</div>':'')
       +'<div style="margin-top:3px;display:flex;gap:3px;flex-wrap:wrap">'
       +(g.waiverSigned?'<span style="font-size:9px;background:#dcfce7;color:#166534;padding:1px 5px;border-radius:3px;font-weight:600">&#x2713; Waiver</span>':'<span style="font-size:9px;background:#fee2e2;color:#991b1b;padding:1px 5px;border-radius:3px;font-weight:600">&#x26A0; No Waiver</span>')
@@ -1424,11 +1426,8 @@ function buildPacket(id,trip,gs,plan){
     groupOrder.forEach(function(grp){
       var grpGuests=groups[grp];
       var grpName=grpGuests[0].resGroupName||'';
-      // Group header row
-      rrows+='<tr class="no-print"><td colspan="7" style="background:var(--pale);padding:6px 10px;font-size:11px;font-weight:700;color:var(--forest);border-top:2px solid var(--stone)">'
-        +(grpName?'&#x1F3F7; '+grpName:'&#x1F465; Group '+(parseInt(grp)))+' &mdash; '+grpGuests.length+' guest'+(grpGuests.length>1?'s':'')
-        +'</td></tr>';
-      grpGuests.forEach(function(g){rrows+=guestRow(g);});
+
+      grpGuests.forEach(function(g,gi){rrows+=guestRow(g, gi===0?grpName:'');});
     });
   } else {
     rrows='<tr><td colspan="7" style="color:var(--muted);font-style:italic;padding:16px">No guest data — paste or upload the Flybook roster PDF</td></tr>';
