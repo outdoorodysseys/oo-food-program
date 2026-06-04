@@ -83,9 +83,6 @@ body{font-family:Arial,sans-serif;background:var(--cream);color:var(--ink)}
 .sl-src{font-size:9px;color:var(--muted);margin-left:auto;white-space:nowrap}
 .sl-gp{background:#dbeafe;color:#1e40af;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px;white-space:nowrap}
 .print-pg1{overflow:hidden}
-.print-pg1-cols{display:flex;gap:16px;align-items:flex-start;width:100%}
-.print-pg1-cols > .sb:first-child{flex:1 1 0;min-width:0}
-.print-pg1-right{flex:0 0 220px;width:220px;min-width:220px}
 @page{margin:0.4in;border:1.5pt solid #1a3d2b;padding:0}
 @media print{
   .sidebar,.nav{display:none!important}
@@ -559,13 +556,13 @@ function parseFlybookRoster(text){
 
   // Extract reservation group names: "James T Chapman - JPCWOW - 4 Guest(s)"
   var resGroupNames=[];
-  var rgRe=/^([A-Za-z][a-zA-Z ]+?) - [A-Z0-9]+ - \d+ Guest/gm;
+  var rgRe=/^([A-Za-z][a-zA-Z ()0-9]+?) - [A-Z0-9]+ - \d+ Guest/gm;
   var rgm;
   while((rgm=rgRe.exec(text))!==null) resGroupNames.push(rgm[1].trim());
 
   // Step 1: Extract clients from "Name - Email: x - Phone: x - Age: x" (spaced or merged)
   var clients=[], byEmail={}, byNorm={};
-  var cRe=/([A-Za-z][a-zA-Z ]*?)\s*-\s*Email:\s*(\S+)\s*-\s*Phone:\s*(\S+)\s*-\s*Age:\s*(\d+|N\/A)/g;
+  var cRe=/([A-Za-z][a-zA-Z ()0-9]*?)\s*-\s*Email:\s*(\S+)\s*-\s*Phone:\s*(\S+)\s*-\s*Age:\s*(\d+|N\/A)/g;
   var cm;
   while((cm=cRe.exec(text))!==null){
     var c={name:cm[1].trim(),email:cm[2].trim(),phone:cm[3]==='N/A'?'':cm[3].trim(),age:cm[4]};
@@ -1822,7 +1819,7 @@ function buildPacket(id,trip,gs,plan){
     +'<div class="ph print-pg1"><div class="pt">'+trip.activityName+'</div>'
     +'<div class="pm"><span>&#x1F4C5; '+sd+' &ndash; '+ed+'</span><span>&#x1F465; '+n+' guests</span><span>&#x1F4C6; '+days+' days</span><span>&#x1F37D; '+totalMeals+' meals</span><span>Generated '+pd+'</span></div></div>'
     +'<div style="padding:18px">'
-    +'<div class="print-pg1 print-pg1-end"><div class="print-pg1-cols">'+roster+'<div class="print-pg1-right">'+gearSummaryHtml+'</div></div></div>'
+    +'<div class="print-pg1 print-pg1-end">'+roster+gearSummaryHtml+'</div>'
     +'<div class="print-menu sb"><div class="sh">&#x1F37D; Daily Menu</div>'+menuHtml+'</div>'
     +'<div class="print-shopping">'+shoppingSection+'</div>'
     +'</div></div>';
