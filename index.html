@@ -799,11 +799,11 @@ function parseFlybookRoster(text){
       // Strip ~ from weight
       if(qa.weight) qa.weight=qa.weight.replace(/^~\s*/,'').trim();
 
-      var sb=/renting|rental/i.test(sbRaw)?'Rental':/own|bringing|personal/i.test(sbRaw)?'Own':sbRaw.substring(0,40);
+      var sb=/renting.*outdoor odysseys|rental|renting.*set/i.test(sbRaw)?'Rental':/bringing.*own|own.*sleeping|personal.*sleeping/i.test(sbRaw)?'Own':/renting|rent/i.test(sbRaw)?'Rental':/own|bringing/i.test(sbRaw)?'Own':sbRaw.substring(0,40);
 
       // Decode tent
       var tentRaw=qa.tent||'';
-      var tent=/provided|outdoor odysseys/i.test(tentRaw)?'OO Tent':/personal|own|bring/i.test(tentRaw)?'Own Tent':tentRaw.substring(0,40);
+      var tent=/provided by outdoor odysseys|outdoor odysseys.*tent/i.test(tentRaw)?'OO Tent':/personal tent|bring.*tent|own.*tent/i.test(tentRaw)?'Own Tent':/provided/i.test(tentRaw)?'OO Tent':/personal|own|bring/i.test(tentRaw)?'Own Tent':tentRaw.substring(0,40);
 
       // Clean diet
       var diet=qa.diet||'None';
@@ -1578,7 +1578,7 @@ function buildPacket(id,trip,gs,plan){
     return '<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #f0f0f0">'      +'<span style="font-size:28px;font-weight:800;line-height:1;min-width:36px;text-align:right;color:'+(hit?'var(--forest)':'#d1d5db')+'">'+n+'</span>'      +'<div style="line-height:1.2"><div style="font-size:12px;font-weight:'+(hit?'700':'400')+';color:'+(hit?'#111':'#9ca3af')+'">'+label+'</div>'      +(sub?'<div style="font-size:10px;color:var(--muted)">'+sub+'</div>':'')      +'</div></div>';
   }
 
-  var gearSummaryHtml='<div class="sb"><div class="sh">&#x1F3D2; Gear Summary</div>'    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">'    +'<div style="border:2px solid '+(sbRental>0?'var(--forest)':'#e5e7eb')+';border-radius:8px;padding:14px;background:'+(sbRental>0?'#f0fdf4':'#fafafa')+'">'    +'<div style="font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:700;margin-bottom:4px">&#x1F6CF; Sleeping Bags + Pads</div>'    +gearRow(sbRental,'Rental sets','from OO storage')    +gearRow(sbOwn,'Guests bringing own','')    +'</div>'    +'<div style="border:2px solid '+(tentOO>0?'var(--forest)':'#e5e7eb')+';border-radius:8px;padding:14px;background:'+(tentOO>0?'#f0fdf4':'#fafafa')+'">'    +'<div style="font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:700;margin-bottom:4px">&#x26FA; OO Tents (no strangers)</div>'    +gearRow(tentBig,'Big tents','2-person')    +gearRow(tentSmall,'Small tents','1-person')    +(tentOwn?gearRow(tentOwn,'Guests bringing own',''):'')     +'</div>'    +'</div>'        +'<div style="border:1.5px solid var(--stone);border-radius:6px;padding:10px 12px;margin-bottom:10px">'
+  var gearSummaryHtml='<div class="sb"><div class="sh">&#x1F3D2; Gear Summary</div>'    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">'    +'<div style="border:2px solid '+(sbRental>0?'var(--forest)':'#e5e7eb')+';border-radius:8px;padding:14px;background:'+(sbRental>0?'#f0fdf4':'#fafafa')+'">'    +'<div style="font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:700;margin-bottom:4px">&#x1F6CF; Sleeping Bags + Pads</div>'    +gearRow(sbRental,'Sleeping Kits','from OO storage')    +gearRow(sbOwn,'Guests bringing own','')    +'</div>'    +'<div style="border:2px solid '+(tentOO>0?'var(--forest)':'#e5e7eb')+';border-radius:8px;padding:14px;background:'+(tentOO>0?'#f0fdf4':'#fafafa')+'">'    +'<div style="font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:700;margin-bottom:4px">&#x26FA; OO Tents (no strangers)</div>'    +gearRow(tentBig,'Big tents','2-person')    +gearRow(tentSmall,'Small tents','1-person')    +(tentOwn?gearRow(tentOwn,'Guests bringing own',''):'')     +'</div>'    +'</div>'        +'<div style="border:1.5px solid var(--stone);border-radius:6px;padding:10px 12px;margin-bottom:10px">'
     +'<div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:6px">&#x1F6CD; Add-Ons &amp; Merch</div>'
     +addonRows
     +'</div>'
