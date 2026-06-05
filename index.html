@@ -634,31 +634,33 @@ function parseFlybookRoster(text){
   LABELS.forEach(function(l){qPrefixes.push(l[0]);qPrefixes.push(l[1]);});
 
   function findClient(blockName, email){
-    // 1. Email match (most reliable)
-    if(email&&byEmail[email.toLowerCase()]&&!used[email.toLowerCase()]){
-      var c=byEmail[email.toLowerCase()]; used[c.email.toLowerCase()]=true; return c;
-    }
-    // 2. Exact normalized name
+    // 1. Exact normalized name match (most specific - prefer over email)
     var k=norm(blockName);
-    if(k&&byNorm[k]&&!used[byNorm[k].email.toLowerCase()]){
-      var c=byNorm[k]; used[c.email.toLowerCase()]=true; return c;
+    if(k&&byNorm[k]&&!used[byNorm[k].name.toLowerCase()]){
+      var c=byNorm[k]; used[c.name.toLowerCase()]=true; return c;
+    }
+    // 2. Email match (only if name didn't match)
+    if(email&&byEmail[email.toLowerCase()]){
+      // Multiple clients can share email — pick one whose name isn't used yet
+      var cands = clients.filter(function(c){return c.email.toLowerCase()===email.toLowerCase() && !used[c.name.toLowerCase()];});
+      if(cands.length){var c=cands[0]; used[c.name.toLowerCase()]=true; return c;}
     }
     // 3. Space-insert merged names: "DagMartensson" -> "Dag Martensson"
     var spaced=spaceCaps(blockName).split(/\s+/);
     var first=norm(spaced[0]||''), last=norm(spaced[spaced.length-1]||'');
     var found=null;
     Object.keys(byNorm).forEach(function(k2){
-      if(!found&&!used[byNorm[k2].email.toLowerCase()]&&first.length>1&&last.length>2&&k2.indexOf(first)>-1&&k2.indexOf(last)>-1)
+      if(!found&&!used[byNorm[k2].name.toLowerCase()]&&first.length>1&&last.length>2&&k2.indexOf(first)>-1&&k2.indexOf(last)>-1)
         found=byNorm[k2];
     });
     if(!found) Object.keys(byNorm).forEach(function(k2){
-      if(!found&&!used[byNorm[k2].email.toLowerCase()]&&last.length>2&&k2.indexOf(last)>-1)
+      if(!found&&!used[byNorm[k2].name.toLowerCase()]&&last.length>2&&k2.indexOf(last)>-1)
         found=byNorm[k2];
     });
-    if(found){used[found.email.toLowerCase()]=true;return found;}
+    if(found){used[found.name.toLowerCase()]=true;return found;}
     // 4. Next unused client
     for(var i=0;i<clients.length;i++){
-      if(!used[clients[i].email.toLowerCase()]){used[clients[i].email.toLowerCase()]=true;return clients[i];}
+      if(!used[clients[i].name.toLowerCase()]){used[clients[i].name.toLowerCase()]=true;return clients[i];}
     }
     return null;
   }
@@ -765,7 +767,7 @@ function parseFlybookRoster(text){
         // whose name hasn't been used as a block name yet
         var sameMail=clients.filter(function(c){return c.email.toLowerCase()===email;});
         if(sameMail.length>1){
-          var unused=sameMail.find(function(c){return !used[norm(c.name)];});
+          var unused=sameMail.find(function(c){return !used[c.name.toLowerCase()];});
           if(unused) cemail=unused;
         }
         blockName=cemail.name;
