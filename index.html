@@ -1402,7 +1402,6 @@ function buildPacket(id,trip,gs,plan){
       +(g.phone?'<div style="font-size:11px;color:var(--muted)">'+formatPhone(g.phone)+'</div>':'')
       +'<div style="margin-top:3px;display:flex;gap:3px;flex-wrap:wrap">'
       +(g.waiverSigned?'<span style="font-size:9px;background:#dcfce7;color:#166534;padding:1px 5px;border-radius:3px;font-weight:600">&#x2713; Waiver</span>':'<span style="font-size:9px;background:#fee2e2;color:#991b1b;padding:1px 5px;border-radius:3px;font-weight:600">&#x26A0; No Waiver</span>')
-      +(g.bio?'<span style="font-size:9px;background:#ede9fe;color:#5b21b6;padding:1px 5px;border-radius:3px;font-weight:600">&#x1F319; Bio</span>':'')
       +'</div>'
       +extras+'</td>'
       +'<td style="white-space:nowrap">'+(g.height||'&mdash;')+' / '+(g.weight?g.weight+' lbs':'&mdash;')+'</td>'
@@ -1411,6 +1410,7 @@ function buildPacket(id,trip,gs,plan){
       +'<td style="font-size:11px">'+med+'</td>'
       +'<td>'+sbBadge+'</td>'
       +'<td>'+tentBadge+'</td>'
+      +'<td>'+(g.bio?'<span class="fl" style="background:#ede9fe;color:#5b21b6">&#x1F319; Yes</span>':'<span style="color:#bbb;font-size:10px">&mdash;</span>')+'</td>'
       +'</tr>';
   }
 
@@ -1432,7 +1432,7 @@ function buildPacket(id,trip,gs,plan){
       grpGuests.forEach(function(g,gi){rrows+=guestRow(g, gi===0?grpName:'');});
     });
   } else {
-    rrows='<tr><td colspan="7" style="color:var(--muted);font-style:italic;padding:16px">No guest data — paste or upload the Flybook roster PDF</td></tr>';
+    rrows='<tr><td colspan="8" style="color:var(--muted);font-style:italic;padding:16px">No guest data — paste or upload the Flybook roster PDF</td></tr>';
   }
 
   // Trip notes from PDF header
@@ -1441,7 +1441,7 @@ function buildPacket(id,trip,gs,plan){
   if(trip.notes){notesHtml+='<div class="al" style="background:#fafafa;border-color:#ccc;margin-bottom:8px"><strong>Notes:</strong> '+trip.notes.replace(/\n/g,' ')+'</div>';}
   var roster='<div class="sb"><div class="sh">&#x1F465; Guest Roster &mdash; '+guestCount+' Guests</div>'+notesHtml+ah
     +'<table class="rt"><thead><tr>'
-    +'<th>Name / Phone</th><th>Ht / Wt</th><th>Age</th><th>Dietary</th><th>Medical</th><th>Sleeping</th><th>Tent</th>'
+    +'<th>Name / Phone</th><th>Ht / Wt</th><th>Age</th><th>Dietary</th><th>Medical</th><th>Sleeping</th><th>Tent</th><th>Bio</th>'
     +'</tr></thead><tbody>'+rrows+'</tbody></table></div>';
 
   // Menu
