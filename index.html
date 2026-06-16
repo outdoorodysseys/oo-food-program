@@ -700,6 +700,20 @@ function parseFlybookRoster(text){
     var lines=section.split('\n').map(function(l){return l.trim();}).filter(Boolean);
     var bstarts=[];
 
+    // First pass: parse products specific to this section
+    var inProd=false;
+    lines.forEach(function(line){
+      if(/^Products\/Custom Line Items/i.test(line)){inProd=true;return;}
+      if(inProd){
+        if(/^Name\s+Quantity/i.test(line)) return;
+        var bm=line.match(/Bioluminescence.+?(\d+)$/i);
+        if(bm){
+          bioCount=(bioCount||0)+parseInt(bm[1]);
+          bioBySection[sectionIdx]=(bioBySection[sectionIdx]||0)+parseInt(bm[1]);
+        }
+      }
+    });
+
     lines.forEach(function(line,i){
       // Must have dash-name structure
       if(!/\s-\s[A-Za-z]/.test(line)&&!/-[A-Za-z][a-zA-Z]/.test(line)) return;
