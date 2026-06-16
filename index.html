@@ -627,6 +627,7 @@ function parseFlybookRoster(text){
   var inWaivers=false;
   var inProducts=false;
   var bioCount=0;
+  var bioBySection={};
   var tripProducts={};
 
   // All Q label prefixes for filtering
@@ -720,7 +721,11 @@ function parseFlybookRoster(text){
         if(/^Name\s+Quantity/i.test(line)) return;
         if(/^Reservation Questions/i.test(line)){inProducts=false;return;}
         var bm=line.match(/Bioluminescence.+?(\d+)$/i);
-        if(bm) bioCount=parseInt(bm[1]);
+        if(bm){
+          bioCount=(bioCount||0)+parseInt(bm[1]);
+          // Track per-section bio count (which reservation ordered it)
+          bioBySection[sectionIdx]=(bioBySection[sectionIdx]||0)+parseInt(bm[1]);
+        }
         return;
       }
       // Parse waiver signers - collect emails that have signed
@@ -840,6 +845,23 @@ function parseFlybookRoster(text){
   });
 
   // If bio count from Products matches all guests, mark everyone (per-guest Q&A may not exist)
+  // Mark bio per-section: if a section's bio count matches the guest count in that section, mark all those guests
+  Object.keys(bioBySection).forEach(function(secIdx){
+    var sectionGuests=guests.filter(function(g){return g.resGroup===parseInt(secIdx);});
+    var sBio=bioBySection[secIdx];
+    if(sBio>0){
+      // If we have exactly enough for everyone in the section, mark all
+      if(sBio>=sectionGuests.length){
+        sectionGuests.forEach(function(g){g.bio=true;});
+      } else {
+        // Otherwise mark the first N guests (best we can do without per-guest data)
+        for(var i=0;i<sBio && i<sectionGuests.length;i++){
+          sectionGuests[i].bio=true;
+        }
+      }
+    }
+  });
+  // Fallback: if total bio count >= total guests, mark everyone
   if(bioCount>0 && bioCount>=guests.length){
     guests.forEach(function(g){g.bio=true;});
   }
