@@ -1863,126 +1863,241 @@ function buildPacket(id,trip,gs,plan){
 }
 </script>
 <!-- ============================================================================
-  OO Trip Packet Generator — Calibration / Override patch (SINGLE-PASTE DEPLOY)
-  Additive: injects CSS, defines the calibration engine, loads saved overrides,
-  fixes two existing bugs, and runtime-patches buildPacket()/sc(). Each patch is
-  guarded and logs a console warning instead of breaking the page.
-  Requires backend actions getOverrides + saveOverride (apps-script-additions.gs).
+  OO Trip Packet Generator — Calibration + Live Shopping patch (SINGLE-PASTE)
+  Paste this entire block into index.html immediately before </body>.
+
+  What it does (all additive, guarded):
+   • Editable per-meal quantities in preferred units (loaves, logs, lb…)
+   • Calibration: edits persist & interpolate across headcounts (Overrides tab)
+   • Add ingredient / zero-to-remove  -> updates the Recipe Matrix
+   • Menu Overview list right after the roster
+   • LIVE shopping list: a single derived view of the per-meal numbers, so the
+     menu and shopping list can never diverge, and it refreshes on every edit.
+   • Auto lunch sides (chips/cookies/fruit) for every lunch
+  Backend needed: getOverrides, saveOverride, addRecipeIngredient,
+  removeRecipeIngredient (Apps Script).
 ============================================================================ -->
 <style id="oo-cal-css">
 .il li.ied{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
 .il li.ied input{font:inherit;color:inherit;border:1px solid transparent;border-radius:3px;padding:0 3px;background:transparent;text-align:right}
-.il li.ied input.qx{width:46px}
-.il li.ied input.ux{width:66px;text-align:left}
-.il li.ied input:hover{border-color:var(--stone)}
-.il li.ied input:focus{border-color:var(--forest);outline:none;background:#fff}
-.il li.ied .inm{flex:1 1 auto}
-.il li.ied .pkgh{color:var(--muted);font-size:10px}
-.il li.ied .ovdot{color:var(--forest);font-size:11px}
-.il li.ied .savetick{color:var(--sage);font-size:9px;opacity:0;transition:opacity .2s;min-width:42px}
-@media print{.il li.ied input{border:none!important;background:transparent!important;padding:0}.il li.ied input.qx{width:32px}.il li.ied input.ux{width:50px}.il li.ied .savetick,.il li.ied .ovdot{display:none}}
+.il li.ied input.qx{width:46px}.il li.ied input.ux{width:66px;text-align:left}
+.il li.ied input:hover{border-color:var(--stone)}.il li.ied input:focus{border-color:var(--forest);outline:none;background:#fff}
+.il li.ied .inm{flex:1 1 auto}.il li.ied .pkgh{color:var(--muted);font-size:10px}
+.il li.ied .ovdot{color:var(--forest);font-size:11px}.il li.ied .savetick{color:var(--sage);font-size:9px;opacity:0;transition:opacity .2s;min-width:42px}
+.ooadd{margin-top:6px}.ooadd-btn{font-size:10px;color:var(--forest);background:none;border:1px dashed var(--stone);border-radius:4px;padding:2px 8px;cursor:pointer}
+.ooadd-form{display:flex;gap:4px;align-items:center;margin-top:5px;flex-wrap:wrap}
+.ooadd-form input,.ooadd-form select{font:inherit;font-size:11px;border:1px solid var(--stone);border-radius:3px;padding:2px 4px}
+.ooadd-form .oa-name{width:120px}.ooadd-form .oa-save{font-size:10px;background:var(--forest);color:#fff;border:none;border-radius:3px;padding:3px 9px;cursor:pointer}
+.ooadd-form .oa-status{font-size:10px;color:var(--sage)}
+.slul{list-style:none;padding:0;margin:0 0 6px;columns:3;column-gap:18px}
+.slul li{break-inside:avoid;font-size:10.5px;padding:2px 0;border-bottom:1px solid #eee}
+.slul .n{color:#aaa;font-size:9px}
+.oo-locrow{display:flex;justify-content:space-between;border-bottom:2px solid var(--sage);margin:8px 0 3px}
+.oo-loc{font-weight:800;font-size:10px;color:var(--forest);letter-spacing:.03em}.oo-cnt{font-size:8px;color:#aaa}
+@media print{.ooadd{display:none!important}.il li.ied input{border:none!important;background:transparent!important;padding:0}.il li.ied input.qx{width:32px}.il li.ied input.ux{width:50px}.il li.ied .savetick,.il li.ied .ovdot{display:none}}
 </style>
 <script>
 (function(){
-  if(!window.S) window.S = {};
-  if(!S.overrides) S.overrides = [];
-  window.nFor = function(gc){ gc=+gc||0; return gc + (gc>=9?2:1); };
-  window.normIngKey = function(s){
-    return String(s||'').toLowerCase()
-      .replace(/\([^)]*\)/g,' ')
-      .replace(/^[~\s]*[\d.\/\-\s]+/,'')
-      .replace(/^(oz|lbs?|cups?|tbsp|tsp|cans?|bunch(?:es)?|cloves?|bags?|scoops?|slices?|loaves?|pints?|quarts?|dozen|each|lb|qt|qt-bag|block|head|knob|stalk|packs?|round|small|baby|pita|clamshell|tub|jar|bottle|carton|box|packet|batch|log)\s+/i,'')
-      .replace(/[^a-z0-9 ]+/g,' ').replace(/\s+/g,' ').trim();
-  };
-  window.roundQty = function(v){ if(!isFinite(v))return 0; if(v<0)v=0; var r=Math.round(v*10)/10; return r===Math.floor(r)?Math.floor(r):r; };
-  window.getCalPoints = function(recipe,ingName){ var k=normIngKey(ingName); return (S.overrides||[]).filter(function(o){return o.recipe===recipe && normIngKey(o.ingredient)===k;}).sort(function(a,b){return (+a.headcount)-(+b.headcount);}); };
-  window.ovUnit = function(p){ var w=p.filter(function(x){return x.unit&&String(x.unit).trim();}); if(!w.length)return null; w.sort(function(a,b){return (new Date(b.updatedAt||0))-(new Date(a.updatedAt||0));}); return w[0].unit; };
-  window.ovDisplayUnit = function(p){ var w=p.filter(function(x){return x.displayUnit&&String(x.displayUnit).trim();}); if(!w.length)return null; w.sort(function(a,b){return (new Date(b.updatedAt||0))-(new Date(a.updatedAt||0));}); return w[0].displayUnit; };
-  function lerp(a,b,G){ if(+b.headcount===+a.headcount)return +a.quantity; return (+a.quantity)+((+b.quantity)-(+a.quantity))*(G-(+a.headcount))/((+b.headcount)-(+a.headcount)); }
-  window.interpQty = function(points,G,type){
-    if(!points||!points.length)return null;
-    if(points[0]&&points[0].type) type=points[0].type;
-    G=+G; var origin=(type==='perpax'||type==='alc');
-    if(points.length===1){ var p=points[0];
-      if(origin){ var base=(type==='alc')?(+p.headcount):nFor(+p.headcount); var cur=(type==='alc')?G:nFor(G); return base>0?(+p.quantity)*cur/base:(+p.quantity); }
-      return +p.quantity; }
-    var first=points[0], last=points[points.length-1];
-    if(G<=+first.headcount) return origin?Math.max(0,lerp(first,points[1],G)):+first.quantity;
-    if(G>=+last.headcount)  return origin?Math.max(0,lerp(points[points.length-2],last,G)):+last.quantity;
-    for(var i=0;i<points.length-1;i++){ if(G>=+points[i].headcount&&G<=+points[i+1].headcount) return lerp(points[i],points[i+1],G); }
-    return +last.quantity;
-  };
+  if(!window.S) window.S={}; if(!S.overrides) S.overrides=[];
+  function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+  window.nFor=function(gc){gc=+gc||0;return gc+(gc>=9?2:1);};
+  window.roundQty=function(v){if(!isFinite(v))return 0;if(v<0)v=0;var r=Math.round(v*10)/10;return r===Math.floor(r)?Math.floor(r):r;};
+  window.normIngKey=function(s){return String(s||'').toLowerCase().replace(/\([^)]*\)/g,' ').replace(/^[~\s]*[\d.\/\-\s]+/,'').replace(/^(oz|lbs?|cups?|tbsp|tsp|cans?|bunch(?:es)?|cloves?|bags?|scoops?|slices?|loaves?|pints?|quarts?|dozen|each|lb|qt|qt-bag|block|head|knob|stalk|packs?|round|small|baby|pita|clamshell|tub|jar|bottle|carton|box|packet|batch|log)\s+/i,'').replace(/[^a-z0-9 ]+/g,' ').replace(/\s+/g,' ').trim();};
+  window.getCalPoints=function(recipe,n){var k=normIngKey(n);return (S.overrides||[]).filter(function(o){return o.recipe===recipe&&normIngKey(o.ingredient)===k;}).sort(function(a,b){return (+a.headcount)-(+b.headcount);});};
+  window.ovUnit=function(p){var w=p.filter(function(x){return x.unit&&String(x.unit).trim();});if(!w.length)return null;w.sort(function(a,b){return (new Date(b.updatedAt||0))-(new Date(a.updatedAt||0));});return w[0].unit;};
+  window.ovDisplayUnit=function(p){var w=p.filter(function(x){return x.displayUnit&&String(x.displayUnit).trim();});if(!w.length)return null;w.sort(function(a,b){return (new Date(b.updatedAt||0))-(new Date(a.updatedAt||0));});return w[0].displayUnit;};
+  function lerp(a,b,G){if(+b.headcount===+a.headcount)return +a.quantity;return (+a.quantity)+((+b.quantity)-(+a.quantity))*(G-(+a.headcount))/((+b.headcount)-(+a.headcount));}
+  window.interpQty=function(points,G,type){if(!points||!points.length)return null;if(points[0]&&points[0].type)type=points[0].type;G=+G;var origin=(type==='perpax'||type==='alc');if(points.length===1){var p=points[0];if(origin){var base=(type==='alc')?(+p.headcount):nFor(+p.headcount);var cur=(type==='alc')?G:nFor(G);return base>0?(+p.quantity)*cur/base:(+p.quantity);}return +p.quantity;}var first=points[0],last=points[points.length-1];if(G<=+first.headcount)return origin?Math.max(0,lerp(first,points[1],G)):+first.quantity;if(G>=+last.headcount)return origin?Math.max(0,lerp(points[points.length-2],last,G)):+last.quantity;for(var i=0;i<points.length-1;i++){if(G>=+points[i].headcount&&G<=+points[i+1].headcount)return lerp(points[i],points[i+1],G);}return +last.quantity;};
   var UNITS='oz|lbs?|cups?|tbsp|tsp|cans?|bunch(?:es)?|cloves?|bags?|scoops?|slices?|loaves?|pints?|quarts?|dozen|each|lb|qt|block|head|knob|stalk|packs?|round|baby|pita|clamshell|tub|jar|bottle|carton|box|packet|batch|small|log';
-  window.parseScaled = function(str){ var m=String(str||'').match(new RegExp('^\\s*([\\d.]+)\\s+(?:('+UNITS+')\\s+)?(.+)$','i')); if(!m)return null; return {qty:m[1],unit:m[2]||'',name:m[3].trim()}; };
-  function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-  window.ovLi = function(recipe, recipeScaledStr, type, guestCount, pkgStr, pkgName, trueFactor){
-    var rp=parseScaled(recipeScaledStr); if(!rp) return '<li>'+recipeScaledStr+'</li>';
+  window.parseScaled=function(str){var m=String(str||'').match(new RegExp('^\\s*([\\d.]+)\\s+(?:('+UNITS+')\\s+)?(.+)$','i'));if(!m)return null;return {qty:m[1],unit:m[2]||'',name:m[3].trim()};};
+
+  // ---- editable line; stamps EXACT recipe-unit total in data-recipeqty ----
+  window.ovLi=function(recipe,recipeScaledStr,type,guestCount,pkgStr,pkgName,trueFactor){
+    var rp=parseScaled(recipeScaledStr); if(!rp)return '<li>'+recipeScaledStr+'</li>';
     var itemName=pkgName||rp.name, recipeQty=parseFloat(rp.qty), recipeUnit=rp.unit;
     var pkgM=pkgStr?String(pkgStr).match(/^\s*([\d.]+)\s+(.+)$/):null; var usePkg=!!pkgM;
     var dispUnit=usePkg?pkgM[2].trim():recipeUnit;
-    var factor=(usePkg&&isFinite(trueFactor)&&trueFactor>0)?trueFactor:(usePkg&&parseFloat(pkgM[1])?recipeQty/parseFloat(pkgM[1]):1);
-    var dispQty=usePkg?roundQty(recipeQty/factor):recipeQty;
-    var pts=getCalPoints(recipe,itemName),overridden=false;
-    if(pts.length){ var iv=interpQty(pts,guestCount,type); if(iv!=null){overridden=true;dispQty=roundQty(usePkg?iv/factor:iv);} var du=usePkg?(ovDisplayUnit(pts)||dispUnit):(ovUnit(pts)||dispUnit); dispUnit=du; }
-    var hint=usePkg?(roundQty(recipeQty)+(recipeUnit?' '+recipeUnit:'')):'';
-    var dot=overridden?'<span class="ovdot" title="Calibrated from saved edits">&#9679;</span>':'';
-    return '<li class="ied" data-recipe="'+esc(recipe)+'" data-ing="'+esc(itemName)+'" data-type="'+esc(type)+'" data-gc="'+guestCount+'" data-factor="'+factor+'" data-pkg="'+(usePkg?1:0)+'" data-runit="'+esc(recipeUnit)+'">'
+    var factor=(usePkg&&isFinite(trueFactor)&&trueFactor>0)?trueFactor:1;
+    var exact=recipeQty, ov=false;
+    var pts=getCalPoints(recipe,itemName);
+    if(pts.length){var iv=interpQty(pts,guestCount,type);if(iv!=null){ov=true;exact=iv;}var du=usePkg?(ovDisplayUnit(pts)||dispUnit):(ovUnit(pts)||dispUnit);dispUnit=du;}
+    var dispQty=usePkg?roundQty(exact/factor):roundQty(exact);
+    var hint=usePkg?(roundQty(exact)+(recipeUnit?' '+recipeUnit:'')):'';
+    var dot=ov?'<span class="ovdot" title="Calibrated">&#9679;</span>':'';
+    return '<li class="ied" data-recipe="'+esc(recipe)+'" data-ing="'+esc(itemName)+'" data-type="'+esc(type)+'" data-gc="'+guestCount+'" data-factor="'+factor+'" data-pkg="'+(usePkg?1:0)+'" data-runit="'+esc(recipeUnit)+'" data-recipeqty="'+roundQty(exact)+'">'
       +'<input class="qx" type="text" inputmode="decimal" value="'+esc(dispQty)+'" oninput="onIngEdit(this)" onfocus="this.select()">'
       +'<input class="ux" type="text" value="'+esc(dispUnit)+'" oninput="onIngEdit(this)" placeholder="unit">'
       +'<span class="inm">'+esc(itemName)+'</span>'+(hint?'<span class="pkgh">&asymp; '+esc(hint)+'</span>':'')+dot+'<span class="savetick"></span></li>';
   };
-  window.scOv = function(recipe, scaledStr, type, guestCount){
-    var p=parseScaled(scaledStr); if(!p)return scaledStr;
-    var pts=getCalPoints(recipe,p.name); if(!pts.length)return scaledStr;
-    var iv=interpQty(pts,guestCount,type); var u=ovUnit(pts);
-    var qty=(iv!=null)?roundQty(iv):p.qty; var unit=u||p.unit;
-    return qty+(unit?' '+unit:'')+' '+p.name;
-  };
-  var _t; window.onIngEdit=function(el){ var li=el.closest('li.ied'); if(!li)return; clearTimeout(_t); _t=setTimeout(function(){captureOverride(li);},500); };
+
+  // ---- edit capture: update data-recipeqty, persist calibration, zero->remove, refresh shopping ----
+  var _t;
+  window.onIngEdit=function(el){var li=el.closest('li.ied');if(!li)return;clearTimeout(_t);_t=setTimeout(function(){captureOverride(li);},500);};
   window.captureOverride=function(li){
     var recipe=li.getAttribute('data-recipe'),ing=li.getAttribute('data-ing'),type=li.getAttribute('data-type')||'perpax',gc=+li.getAttribute('data-gc')||0,factor=parseFloat(li.getAttribute('data-factor'))||1,usePkg=li.getAttribute('data-pkg')==='1',recipeUnit=li.getAttribute('data-runit')||'';
     var entered=parseFloat(li.querySelector('.qx').value); var enteredUnit=(li.querySelector('.ux').value||'').trim();
     if(!isFinite(entered))return;
-    var recipeQty=usePkg?entered*factor:entered; var storeUnit=usePkg?recipeUnit:enteredUnit; var displayUnit=usePkg?enteredUnit:'';
+    var recipeQty=usePkg?entered*factor:entered;
+    li.setAttribute('data-recipeqty', String(roundQty(recipeQty)));
+    if(entered===0){ ooRemoveIngredient(li, recipe, ing); return; }
+    var storeUnit=usePkg?recipeUnit:enteredUnit; var displayUnit=usePkg?enteredUnit:'';
     var k=normIngKey(ing);
     S.overrides=(S.overrides||[]).filter(function(o){return !(o.recipe===recipe&&normIngKey(o.ingredient)===k&&(+o.headcount)===gc);});
-    S.overrides.push({recipe:recipe,ingredient:ing,headcount:gc,quantity:recipeQty,unit:storeUnit,displayUnit:displayUnit,type:type,updatedAt:new Date().toISOString(),updatedBy:'guide'});
-    var tick=li.querySelector('.savetick'); if(tick){tick.textContent='\u2713 saved';tick.style.opacity='1';setTimeout(function(){tick.style.opacity='0';},1500);}
-    if(typeof apiFetch==='function'){ apiFetch('saveOverride',{recipe:recipe,ingredient:ing,headcount:gc,quantity:recipeQty,unit:storeUnit,displayUnit:displayUnit,type:type,by:'guide'}).catch(function(){}); }
+    S.overrides.push({recipe:recipe,ingredient:ing,headcount:gc,quantity:recipeQty,unit:storeUnit,displayUnit:displayUnit,type:type,updatedAt:new Date().toISOString(),updatedBy:'admin'});
+    var tick=li.querySelector('.savetick'); if(tick){tick.textContent='✓ saved';tick.style.opacity='1';setTimeout(function(){tick.style.opacity='0';},1500);}
+    if(typeof apiFetch==='function'){apiFetch('saveOverride',{recipe:recipe,ingredient:ing,headcount:gc,quantity:recipeQty,unit:storeUnit,displayUnit:displayUnit,type:type,by:'admin'}).catch(function(){});}
+    ooRefreshShopping();
   };
-  function patchFn(name, edits){
-    try{
-      if(typeof window[name]!=='function'){ console.warn('[oo-cal] '+name+' not found'); return false; }
-      var src=window[name].toString(), applied=0;
-      edits.forEach(function(e){ if(src.indexOf(e[0])>-1){ src=src.replace(e[0],e[1]); applied++; } else console.warn('[oo-cal] '+name+': anchor not found'); });
-      if(applied){ window[name]=eval('('+src+')'); }
-      return applied===edits.length;
-    }catch(err){ console.warn('[oo-cal] patch '+name+' failed: '+err.message); return false; }
-  }
+  window.ooRemoveIngredient=function(li,recipe,ing){
+    var snapshot=li.outerHTML;
+    li.style.display='none'; li.setAttribute('data-removed','1'); li.removeAttribute('data-recipeqty');
+    var rc=(S.recipes||[]).find(function(x){return x['Recipe Name']===recipe;});
+    var prev=rc?rc['Ingredients (Per Pax)']:null;
+    if(rc){var k=normIngKey(ing);rc['Ingredients (Per Pax)']=String(prev||'').split(',').map(function(s){return s.trim();}).filter(function(s){return s&&normIngKey(s)!==k;}).join(', ');}
+    if(typeof apiFetch==='function'){apiFetch('removeRecipeIngredient',{recipe:recipe,ingredient:ing,by:'admin'}).catch(function(){});}
+    // inline undo
+    var u=document.createElement('span');u.className='no-print';u.style.cssText='font-size:10px;color:#b45309;margin-left:6px;cursor:pointer';u.textContent='↩ undo remove '+ing;
+    u.onclick=function(){li.style.display='';li.removeAttribute('data-removed');li.setAttribute('data-recipeqty',String(parseFloat(li.querySelector('.qx').value)*(parseFloat(li.getAttribute('data-factor'))||1)));if(rc)rc['Ingredients (Per Pax)']=prev;if(typeof apiFetch==='function')apiFetch('addRecipeIngredient',{recipe:recipe,ingredient:snapshotIng(snapshot)}).catch(function(){});u.remove();ooRefreshShopping();};
+    li.parentNode.insertBefore(u, li.nextSibling);
+    ooRefreshShopping();
+  };
+  function snapshotIng(html){var m=html.match(/data-ing="([^"]*)"/);return m?m[1]:'';}
+
+  // ---- aggregation: shopping list derived from menu data-recipeqty ----
+  var ALIAS={'Bell Peppers':'Bell Pepper','Chevre':'Cheese - Chevre / Goat','Berries':'Mixed Berries','Walnuts':'Almonds or Walnuts','Romaine':'Mixed Greens','Turkey or Ham':'Deli Turkey/Ham','Mixed Greens / Romaine':'Mixed Greens'};
+  var CONV={
+   'Sliced Sandwich Bread':[16,'loaf','shop','Walk-in'],'Deli Sliced Cheese':[23,'lb','guide','Kings'],'Deli Turkey/Ham':[16,'lb','guide','Kings'],
+   'Tomato':[1,'each','shop','Walk-in'],'Fresh Tomato':[1,'each','shop','Walk-in'],'Cucumber':[1,'each','shop','Walk-in'],'Red Onion':[1,'each','shop','Walk-in'],
+   'Bell Pepper':[1,'each','shop','Walk-in'],'Yellow Onions':[1,'each','shop','Walk-in'],'Sweet Potato':[1,'each','shop','Walk-in'],'Apples':[1,'each','shop','Walk-in'],
+   'Zucchini':[1,'each','shop','Walk-in'],'Hot Pepper':[1,'each','guide','Off-property'],'Carrots':[4,'each','shop','Walk-in'],'Red Cabbage':[32,'head','shop','Walk-in'],
+   'Potato':[1,'lb','shop','Walk-in'],'Cheese - Jack/Cheddar':[16,'lb','shop','Walk-in'],'Cheese - Hard (Parmesan)':[8,'block','shop','Walk-in'],'Feta':[8,'block','shop','Walk-in'],
+   'Cheese - Chevre / Goat':[4,'log','shop','Walk-in'],'Sour Cream':[16,'tub','shop','Walk-in'],'Mascarpone or Yogurt':[16,'tub','shop','Walk-in'],'Yogurt':[32,'tub','shop','Walk-in'],
+   'Butter':[16,'lb','shop','Walk-in'],'Whip Cream':[1,'carton','shop','Walk-in'],'Eggs':[12,'dozen','shop','Walk-in'],'Salsa':[16,'jar','shop','Walk-in'],
+   'Mustard':[1,'jar','shop','Dry Goods'],'Mayo':[1,'jar','shop','Walk-in'],
+   'Canned Tomatoes/Sauce':[1,'can','shop','Dry Goods'],'Canned Beans':[1,'can','shop','Dry Goods'],'Canned Chicken':[12,'can','shop','Dry Goods'],'Corn':[1.8,'can','shop','Dry Goods'],
+   'Pasta - Penne/Fusilli':[16,'box','shop','Dry Goods'],'Pasta':[16,'box','shop','Dry Goods'],'Brownie Mix':[1,'box','shop','Dry Goods'],'Crackers - Sesmark':[30,'box','shop','Dry Goods'],
+   'Olive Oil':[24,'bottle','shop','Dry Goods'],'Sesame Oil':[8,'bottle','shop','Dry Goods'],'Soy Sauce':[10,'bottle','shop','Dry Goods'],'Rice Vinegar':[12,'bottle','shop','Dry Goods'],
+   'Brown Sugar':[32,'bag','shop','Dry Goods'],'Honey':[12,'bottle','shop','Dry Goods'],'Kalamata Olives':[8,'jar','shop','Dry Goods'],'Artichoke Hearts':[12,'jar','shop','Dry Goods'],
+   'Chocolate':[3.5,'bar','shop','Dry Goods'],'Pesto - Store-bought':[7,'jar','shop','Dry Goods'],'Balsamic':[16,'bottle','shop','Dry Goods'],'Tortillas - Flour':[10,'pack','shop','Dry Goods'],
+   'Rice':[4,'lb','shop','Bulk'],'Bulk Nuts - Mixed':[16,'bag','shop','Bulk'],'Almonds or Walnuts':[16,'bag','shop','Bulk'],'Pumpkin Seeds':[16,'bag','shop','Bulk'],
+   'Pumpkin or Sunflower Seeds':[16,'bag','shop','Bulk'],'Sunflower Seeds':[16,'bag','shop','Bulk'],'Sesame Seeds':[8,'bag','shop','Bulk'],'Granola':[16,'bag','shop','Bulk'],
+   'Cumin':[null,'kit','shop','Dry Goods'],'Chili Powder':[null,'kit','shop','Dry Goods'],'Paprika':[null,'kit','shop','Dry Goods'],'Garlic Powder':[null,'kit','shop','Dry Goods'],
+   'Garlic':[10,'head','shop','Walk-in'],'House Hummus':[null,'batch','shop','Prepped'],'OD Taco Mix':[1,'batch','shop','Prepped'],'OD Vinaigrette':[1,'batch','shop','Prepped'],
+   'Cooked Quinoa':[null,'batch','shop','Prepped'],'Oat/Flour/Brown Sugar Mix':[1,'qt-bag','shop','Prepped'],'Balsamic Glaze':[1,'oz','shop','Prepped'],
+   'Pita':[6,'pack','guide','Off-property'],'Cilantro':[1,'bunch','guide','Off-property'],'Lime':[1,'each','guide','Off-property'],'Avocado':[1,'each','guide','Off-property'],
+   'Celery':[8,'head','guide','Off-property'],'Cherry Tomatoes':[30,'pint','guide','Off-property'],'Smoked Salmon':[16,'lb','guide','Off-property'],'Ground Beef':[16,'lb','guide','Off-property'],
+   'Bacon':[12,'pack','guide','Off-property'],'Salami':[6,'pack','guide','Off-property'],'Cheese - Brie':[8,'round','guide','Off-property'],'Fresh Mozzarella':[8,'ball','guide','Off-property'],
+   'Mango':[1,'each','guide','Off-property'],'Snap Peas':[8,'bag','guide','Off-property'],'Kale':[2,'bunch','guide','Off-property'],'Mixed Greens':[5,'clamshell','guide','Off-property'],
+   'Mixed Berries':[1.5,'clamshell','guide','Off-property'],'Fresh Basil':[1,'bunch','guide','Off-property'],'Fresh Herbs':[1,'bunch','guide','Off-property'],'Tempeh':[8,'block','guide','Off-property'],
+   'Chicken - Fresh':[16,'lb','guide','Off-property'],'Chicken':[16,'lb','guide','Off-property'],'Nectarine':[1,'each','guide','Off-property']
+  };
+  function toBaseQty(canon,unit,qty){if(canon==='Canned Tomatoes/Sauce')return unit==='can'?qty:qty/15;if(canon==='Olive Oil')return unit==='oz'?qty:qty*8;return qty;}
+  function R2(x){return Math.abs(x-Math.round(x))<1e-9?Math.round(x):Math.round(x*10)/10;}
+  window.ooComputeShopping=function(root, plan){
+    var agg={};
+    root.querySelectorAll('li.ied').forEach(function(li){
+      if(li.getAttribute('data-removed'))return;
+      var name=li.getAttribute('data-ing'); var rq=parseFloat(li.getAttribute('data-recipeqty')); var ru=li.getAttribute('data-runit')||'';
+      if(!name||!isFinite(rq)||rq<=0)return;
+      var canon=ALIAS[name]||name; var q=toBaseQty(canon,ru,rq);
+      if(!agg[canon])agg[canon]={qty:0,runit:ru}; agg[canon].qty+=q;
+    });
+    var groups={}; function push(s,l,h){var k=s+'|'+l;(groups[k]=groups[k]||[]).push(h);}
+    Object.keys(agg).sort().forEach(function(canon){
+      var a=agg[canon], rule=CONV[canon], src,loc,line;
+      if(rule){var per=rule[0],pu=rule[1];src=rule[2];loc=rule[3];
+        if(per==null)line="<b>as needed</b> &mdash; "+esc(canon)+" <span class='n'>(~"+R2(a.qty)+" "+esc(a.runit)+", from kit)</span>";
+        else{var buy=Math.ceil(a.qty/per-1e-9);line="<b>"+buy+" "+esc(pu)+"</b> &mdash; "+esc(canon)+" <span class='n'>(need ~"+R2(a.qty)+(a.runit?' '+esc(a.runit):'')+")</span>";}
+      } else {src='shop';loc='Other';line="<b>"+R2(a.qty)+(a.runit?' '+esc(a.runit):'')+"</b> &mdash; "+esc(canon);}
+      push(src,loc,line);
+    });
+    var nLunch=0;(plan||[]).forEach(function(d){if(d&&d.Lunch)nLunch++;});var n=17;
+    if(nLunch>0){push('shop','Lunch',"<b>"+(3*nLunch)+" bag</b> &mdash; Chips - Kettle <span class='n'>(~3/lunch x "+nLunch+")</span>");
+      push('shop','Lunch',"<b>"+(2*n*nLunch)+" ct</b> &mdash; Cookies <span class='n'>(~"+(2*n)+"/lunch)</span>");
+      push('shop','Lunch',"<b>"+(n*nLunch)+" ea</b> &mdash; Lunch Fruit (apples/oranges/bananas) <span class='n'>(~"+n+"/lunch)</span>");}
+    return {agg:agg,groups:groups,nLunch:nLunch};
+  };
+  var LOCN={'Walk-in':'WALK-IN FRIDGE','Dry Goods':'DRY GOODS','Bulk':'BULK FOODS','Prepped':'PREPPED FOOD','Lunch':'LUNCH SIDES — EVERY LUNCH','Off-property':'GUIDE PROCURES OFF-PROPERTY','Kings':'AT KINGS (DELI)','Other':'OTHER'};
+  window.ooRenderShopHTML=function(r){
+    function sec(src,locs){var h='';locs.forEach(function(loc){var it=r.groups[src+'|'+loc];if(!it)return;h+='<div class="oo-locrow"><span class="oo-loc">'+LOCN[loc]+'</span><span class="oo-cnt">'+it.length+'</span></div><ul class="slul">';it.slice().sort().forEach(function(x){h+='<li>'+x+'</li>';});h+='</ul>';});return h;}
+    return '<div class="sb" id="oo-shop"><div class="sh">&#x1F3EA; Company Shopping List <span style="font-size:9px;font-weight:400;color:#999">&middot; live</span></div>'
+      +sec('shop',['Walk-in','Dry Goods','Bulk','Prepped','Lunch','Other'])+'</div>'
+      +'<div class="sb"><div class="sh">&#x1F6D2; Guide Shopping List &mdash; Off Property</div>'+sec('guide',['Off-property','Kings','Other'])+'</div>';
+  };
+  var _rs;
+  window.ooRefreshShopping=function(){clearTimeout(_rs);_rs=setTimeout(ooRefreshShoppingNow,120);};
+  window.ooRefreshShoppingNow=function(){
+    var con=document.getElementById('con'); if(!con||!con.querySelector('li.ied'))return;
+    var r=window.ooComputeShopping(con, S.plans[(S.selectedIds||[])[0]]||[]);
+    var fresh=window.ooRenderShopHTML(r);
+    var holder=con.querySelector('#oo-shop-wrap');
+    if(holder){holder.innerHTML=fresh;return;}
+    [].slice.call(con.querySelectorAll('.sb')).forEach(function(s){var h=s.querySelector('.sh');if(h&&/Shopping List/i.test(h.textContent))s.remove();});
+    var pb=con.querySelector('.pb')||con;
+    var w=document.createElement('div');w.id='oo-shop-wrap';w.innerHTML=fresh;pb.appendChild(w);
+  };
+
+  // ---- menu overview (after roster) ----
+  window.ooMenuSummary=function(trip,plan){
+    if(!plan||!plan.length)return '';var rows='';
+    for(var d=0;d<plan.length;d++){var day=plan[d]||{};
+      var items=MTYPES.filter(function(mt){return day[mt];}).map(function(mt){return '<div style="display:flex;gap:8px;line-height:1.5"><span style="min-width:78px;color:var(--muted);text-transform:uppercase;font-size:9px;font-weight:700;padding-top:2px">'+mt+'</span><span style="font-weight:600;font-size:12px">'+esc(day[mt])+'</span></div>';}).join('');
+      if(!items)continue;
+      rows+='<div style="margin-bottom:9px"><div style="font-weight:700;font-size:11px;color:var(--forest);border-bottom:1px solid var(--stone);padding-bottom:2px;margin-bottom:4px">Day '+(d+1)+' &mdash; '+getDayLabel(trip,d)+'</div>'+items+'</div>';}
+    if(!rows)return '';
+    return '<div class="sb" style="page-break-inside:avoid"><div class="sh">&#x1F37D;&#xFE0F; Menu Overview</div>'+rows+'</div>';
+  };
+
+  // ---- add ingredient ----
+  window.ooAddBtn=function(recipe,guestCount,n){
+    return '<div class="ooadd" data-recipe="'+esc(recipe)+'" data-gc="'+guestCount+'" data-n="'+n+'">'
+      +'<button type="button" class="ooadd-btn" onclick="ooToggleAdd(this)">+ Add ingredient</button>'
+      +'<div class="ooadd-form" style="display:none"><input class="oa-name" placeholder="ingredient"><input class="oa-qty" placeholder="qty" inputmode="decimal" style="width:48px"><input class="oa-unit" placeholder="unit" style="width:62px">'
+      +'<select class="oa-scale"><option value="perpax">per person</option><option value="shared">fixed total</option><option value="perpan">per pan</option><option value="perdo">per Dutch oven</option></select>'
+      +'<button type="button" class="oa-save" onclick="ooAddIngredient(this)">Add</button><span class="oa-status"></span></div></div>';
+  };
+  window.ooToggleAdd=function(btn){var f=btn.parentElement.querySelector('.ooadd-form');if(f){f.style.display=(f.style.display==='none'?'flex':'none');var ni=f.querySelector('.oa-name');if(f.style.display!=='none'&&ni)ni.focus();}};
+  function roundQty3(v){if(!isFinite(v))return 0;var r=Math.round(v*1000)/1000;return r===Math.floor(r)?Math.floor(r):r;}
+  window.ooAddIngredient=function(btn){
+    var box=btn.closest('.ooadd');var st=box.querySelector('.oa-status');
+    var recipe=box.getAttribute('data-recipe');var n=+box.getAttribute('data-n')||1;
+    var name=(box.querySelector('.oa-name').value||'').trim();var qty=parseFloat(box.querySelector('.oa-qty').value);var unit=(box.querySelector('.oa-unit').value||'').trim();var scale=box.querySelector('.oa-scale').value;
+    if(!name||!isFinite(qty)){st.textContent='enter name + qty';return;}
+    var u=unit?unit+' ':'';var text;
+    if(scale==='perpax')text=roundQty3(qty/n)+' '+u+name;else if(scale==='shared')text=roundQty3(qty)+' '+u+name+' (shared)';else if(scale==='perpan')text=roundQty3(qty)+' '+u+name+' (per pan)';else text=roundQty3(qty)+' '+u+name+' (per DO)';
+    var rc=(S.recipes||[]).find(function(x){return x['Recipe Name']===recipe;});
+    if(rc){var cur=String(rc['Ingredients (Per Pax)']||'').trim();rc['Ingredients (Per Pax)']=cur?cur+', '+text:text;}
+    st.textContent='saving...';
+    if(typeof apiFetch==='function'){apiFetch('addRecipeIngredient',{recipe:recipe,ingredient:text}).then(function(r){st.textContent=(r&&r.success)?'✓ added':'saved';}).catch(function(){st.textContent='saved';});}
+    setTimeout(ooRerender,350);
+  };
+  window.ooRerender=function(){var html='';(S.selectedIds||[]).forEach(function(id){var td=S.tripData[id];if(!td)return;html+=window.buildPacket(id,td.trip,td.guests,S.plans[id]||[]);});var con=document.getElementById('con');if(con){con.innerHTML='<div class="pb">'+html+'</div>';ooRefreshShoppingNow();if(typeof fitPg1ToPage==='function')setTimeout(fitPg1ToPage,80);}};
+
+  // ---- patch host buildPacket / sc, fix bugs, load overrides, observe renders ----
+  function patchFn(name,edits){try{if(typeof window[name]!=='function'){console.warn('[oo] '+name+' missing');return false;}var src=window[name].toString(),ap=0;edits.forEach(function(e){if(src.indexOf(e[0])>-1){src=src.replace(e[0],e[1]);ap++;}else console.warn('[oo] anchor miss '+name+': '+e[0].slice(0,30));});if(ap)window[name]=eval('('+src+')');return ap===edits.length;}catch(err){console.warn('[oo] patch '+name+' '+err.message);return false;}}
   function applyPatches(){
-    patchFn('sc', [[ "(oz|lb|lbs|cup|cups|tbsp|tsp|can|cans|bunch|clove|cloves|bag|scoop|slice|slices)",
-                     "(oz|lbs?|cups?|tbsp|tsp|cans?|bunch(?:es)?|cloves?|bags?|scoops?|slices?)" ]]);
-    patchFn('buildPacket', [
+    patchFn('sc',[["(oz|lb|lbs|cup|cups|tbsp|tsp|can|cans|bunch|clove|cloves|bag|scoop|slice|slices)","(oz|lbs?|cups?|tbsp|tsp|cans?|bunch(?:es)?|cloves?|bags?|scoops?|slices?)"]]);
+    patchFn('buildPacket',[
       ["return '<li>'+scaled2s+'</li>';","return ovLi(r['Recipe Name'],scaled2s,'shared',guestCount);"],
       ["return '<li>'+scaled2+'</li>';","return ovLi(r['Recipe Name'],scaled2,'perdo',guestCount);"],
       ["if(cname && pkg!==scaled) return '<li>'+pkg+' '+cname+'</li>';","if(cname && pkg!==scaled) return ovLi(r['Recipe Name'],scaled,isAlc?'alc':'perpax',guestCount,pkg,cname,Number(mv['Package Size']));"],
       ["if(cname && pkg===scaled) return '<li>'+scaled+'</li>';","if(cname && pkg===scaled) return ovLi(r['Recipe Name'],scaled,isAlc?'alc':'perpax',guestCount);"],
       ["return '<li>'+scaled+'</li>';","return ovLi(r['Recipe Name'],scaled,isAlc?'alc':'perpax',guestCount);"],
-      ["scaledDO=sc(ing,numDO2)","scaledDO=scOv(r['Recipe Name'],sc(ing,numDO2),'perdo',guestCount)"],
-      ["sc(ing2, isAlcShop?guestCount:n)","scOv(r['Recipe Name'],sc(ing2, isAlcShop?guestCount:n),isAlcShop?'alc':'perpax',guestCount)"]
+      ["scaledDO=sc(ing,numDO2)","scaledDO=sc(ing,numDO2)"],
+      ["roster+gearSummary","roster+(typeof ooMenuSummary==='function'?ooMenuSummary(trip,plan):'')+gearSummary"],
+      ["'<ul class=\"il\">'+ings+'</ul>'","'<ul class=\"il\">'+ings+'</ul>'+(typeof ooAddBtn==='function'?ooAddBtn(r['Recipe Name'],guestCount,n):'')"]
     ]);
-    if(typeof processPastedRoster==='function' && typeof processPDFText==='function'){
-      window.processPastedRoster=function(){ var ta=document.getElementById('paste-roster'); if(!ta||!ta.value.trim()){alert('Paste roster text first');return;} var statusEl=document.getElementById('paste-status'); var text=ta.value.replace(/\r\n/g,'\n').replace(/\r/g,'\n'); processPDFText(text,statusEl); if(statusEl&&statusEl.textContent.indexOf('Imported')>-1) ta.value=''; };
-    }
-    if(typeof apiFetch==='function'){
-      apiFetch('getOverrides').then(function(r){ if(r&&r.success){ S.overrides=r.overrides||[]; if(typeof log==='function') log((S.overrides||[]).length+' overrides','ok'); } }).catch(function(){});
-    }
-    console.log('[oo-cal] calibration engine active');
+    if(typeof processPastedRoster==='function'&&typeof processPDFText==='function'){window.processPastedRoster=function(){var ta=document.getElementById('paste-roster');if(!ta||!ta.value.trim()){alert('Paste roster text first');return;}var statusEl=document.getElementById('paste-status');var text=ta.value.replace(/\r\n/g,'\n').replace(/\r/g,'\n');processPDFText(text,statusEl);if(statusEl&&statusEl.textContent.indexOf('Imported')>-1)ta.value='';};}
+    if(typeof apiFetch==='function'){apiFetch('getOverrides').then(function(r){if(r&&r.success){S.overrides=r.overrides||[];if(typeof log==='function')log((S.overrides||[]).length+' overrides','ok');}}).catch(function(){});}
+    // observe #con: when a packet renders, install/refresh the live shopping list
+    var con=document.getElementById('con');
+    if(con&&window.MutationObserver){var mo=new MutationObserver(function(){if(con.querySelector('li.ied')&&!con.querySelector('#oo-shop-wrap'))ooRefreshShopping();});mo.observe(con,{childList:true,subtree:true});}
+    console.log('[oo] calibration + live shopping active');
   }
-  if(document.readyState==='complete' || document.readyState==='interactive'){ setTimeout(applyPatches,0); }
-  else { window.addEventListener('DOMContentLoaded', applyPatches); }
+  if(document.readyState==='complete'||document.readyState==='interactive'){setTimeout(applyPatches,0);}else{window.addEventListener('DOMContentLoaded',applyPatches);}
 })();
 </script>
+
 </body>
 </html>
 
