@@ -1862,6 +1862,127 @@ function buildPacket(id,trip,gs,plan){
     +'</div></div>';
 }
 </script>
+<!-- ============================================================================
+  OO Trip Packet Generator — Calibration / Override patch (SINGLE-PASTE DEPLOY)
+  Additive: injects CSS, defines the calibration engine, loads saved overrides,
+  fixes two existing bugs, and runtime-patches buildPacket()/sc(). Each patch is
+  guarded and logs a console warning instead of breaking the page.
+  Requires backend actions getOverrides + saveOverride (apps-script-additions.gs).
+============================================================================ -->
+<style id="oo-cal-css">
+.il li.ied{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.il li.ied input{font:inherit;color:inherit;border:1px solid transparent;border-radius:3px;padding:0 3px;background:transparent;text-align:right}
+.il li.ied input.qx{width:46px}
+.il li.ied input.ux{width:66px;text-align:left}
+.il li.ied input:hover{border-color:var(--stone)}
+.il li.ied input:focus{border-color:var(--forest);outline:none;background:#fff}
+.il li.ied .inm{flex:1 1 auto}
+.il li.ied .pkgh{color:var(--muted);font-size:10px}
+.il li.ied .ovdot{color:var(--forest);font-size:11px}
+.il li.ied .savetick{color:var(--sage);font-size:9px;opacity:0;transition:opacity .2s;min-width:42px}
+@media print{.il li.ied input{border:none!important;background:transparent!important;padding:0}.il li.ied input.qx{width:32px}.il li.ied input.ux{width:50px}.il li.ied .savetick,.il li.ied .ovdot{display:none}}
+</style>
+<script>
+(function(){
+  if(!window.S) window.S = {};
+  if(!S.overrides) S.overrides = [];
+  window.nFor = function(gc){ gc=+gc||0; return gc + (gc>=9?2:1); };
+  window.normIngKey = function(s){
+    return String(s||'').toLowerCase()
+      .replace(/\([^)]*\)/g,' ')
+      .replace(/^[~\s]*[\d.\/\-\s]+/,'')
+      .replace(/^(oz|lbs?|cups?|tbsp|tsp|cans?|bunch(?:es)?|cloves?|bags?|scoops?|slices?|loaves?|pints?|quarts?|dozen|each|lb|qt|qt-bag|block|head|knob|stalk|packs?|round|small|baby|pita|clamshell|tub|jar|bottle|carton|box|packet|batch|log)\s+/i,'')
+      .replace(/[^a-z0-9 ]+/g,' ').replace(/\s+/g,' ').trim();
+  };
+  window.roundQty = function(v){ if(!isFinite(v))return 0; if(v<0)v=0; var r=Math.round(v*10)/10; return r===Math.floor(r)?Math.floor(r):r; };
+  window.getCalPoints = function(recipe,ingName){ var k=normIngKey(ingName); return (S.overrides||[]).filter(function(o){return o.recipe===recipe && normIngKey(o.ingredient)===k;}).sort(function(a,b){return (+a.headcount)-(+b.headcount);}); };
+  window.ovUnit = function(p){ var w=p.filter(function(x){return x.unit&&String(x.unit).trim();}); if(!w.length)return null; w.sort(function(a,b){return (new Date(b.updatedAt||0))-(new Date(a.updatedAt||0));}); return w[0].unit; };
+  window.ovDisplayUnit = function(p){ var w=p.filter(function(x){return x.displayUnit&&String(x.displayUnit).trim();}); if(!w.length)return null; w.sort(function(a,b){return (new Date(b.updatedAt||0))-(new Date(a.updatedAt||0));}); return w[0].displayUnit; };
+  function lerp(a,b,G){ if(+b.headcount===+a.headcount)return +a.quantity; return (+a.quantity)+((+b.quantity)-(+a.quantity))*(G-(+a.headcount))/((+b.headcount)-(+a.headcount)); }
+  window.interpQty = function(points,G,type){
+    if(!points||!points.length)return null;
+    if(points[0]&&points[0].type) type=points[0].type;
+    G=+G; var origin=(type==='perpax'||type==='alc');
+    if(points.length===1){ var p=points[0];
+      if(origin){ var base=(type==='alc')?(+p.headcount):nFor(+p.headcount); var cur=(type==='alc')?G:nFor(G); return base>0?(+p.quantity)*cur/base:(+p.quantity); }
+      return +p.quantity; }
+    var first=points[0], last=points[points.length-1];
+    if(G<=+first.headcount) return origin?Math.max(0,lerp(first,points[1],G)):+first.quantity;
+    if(G>=+last.headcount)  return origin?Math.max(0,lerp(points[points.length-2],last,G)):+last.quantity;
+    for(var i=0;i<points.length-1;i++){ if(G>=+points[i].headcount&&G<=+points[i+1].headcount) return lerp(points[i],points[i+1],G); }
+    return +last.quantity;
+  };
+  var UNITS='oz|lbs?|cups?|tbsp|tsp|cans?|bunch(?:es)?|cloves?|bags?|scoops?|slices?|loaves?|pints?|quarts?|dozen|each|lb|qt|block|head|knob|stalk|packs?|round|baby|pita|clamshell|tub|jar|bottle|carton|box|packet|batch|small|log';
+  window.parseScaled = function(str){ var m=String(str||'').match(new RegExp('^\\s*([\\d.]+)\\s+(?:('+UNITS+')\\s+)?(.+)$','i')); if(!m)return null; return {qty:m[1],unit:m[2]||'',name:m[3].trim()}; };
+  function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  window.ovLi = function(recipe, recipeScaledStr, type, guestCount, pkgStr, pkgName, trueFactor){
+    var rp=parseScaled(recipeScaledStr); if(!rp) return '<li>'+recipeScaledStr+'</li>';
+    var itemName=pkgName||rp.name, recipeQty=parseFloat(rp.qty), recipeUnit=rp.unit;
+    var pkgM=pkgStr?String(pkgStr).match(/^\s*([\d.]+)\s+(.+)$/):null; var usePkg=!!pkgM;
+    var dispUnit=usePkg?pkgM[2].trim():recipeUnit;
+    var factor=(usePkg&&isFinite(trueFactor)&&trueFactor>0)?trueFactor:(usePkg&&parseFloat(pkgM[1])?recipeQty/parseFloat(pkgM[1]):1);
+    var dispQty=usePkg?roundQty(recipeQty/factor):recipeQty;
+    var pts=getCalPoints(recipe,itemName),overridden=false;
+    if(pts.length){ var iv=interpQty(pts,guestCount,type); if(iv!=null){overridden=true;dispQty=roundQty(usePkg?iv/factor:iv);} var du=usePkg?(ovDisplayUnit(pts)||dispUnit):(ovUnit(pts)||dispUnit); dispUnit=du; }
+    var hint=usePkg?(roundQty(recipeQty)+(recipeUnit?' '+recipeUnit:'')):'';
+    var dot=overridden?'<span class="ovdot" title="Calibrated from saved edits">&#9679;</span>':'';
+    return '<li class="ied" data-recipe="'+esc(recipe)+'" data-ing="'+esc(itemName)+'" data-type="'+esc(type)+'" data-gc="'+guestCount+'" data-factor="'+factor+'" data-pkg="'+(usePkg?1:0)+'" data-runit="'+esc(recipeUnit)+'">'
+      +'<input class="qx" type="text" inputmode="decimal" value="'+esc(dispQty)+'" oninput="onIngEdit(this)" onfocus="this.select()">'
+      +'<input class="ux" type="text" value="'+esc(dispUnit)+'" oninput="onIngEdit(this)" placeholder="unit">'
+      +'<span class="inm">'+esc(itemName)+'</span>'+(hint?'<span class="pkgh">&asymp; '+esc(hint)+'</span>':'')+dot+'<span class="savetick"></span></li>';
+  };
+  window.scOv = function(recipe, scaledStr, type, guestCount){
+    var p=parseScaled(scaledStr); if(!p)return scaledStr;
+    var pts=getCalPoints(recipe,p.name); if(!pts.length)return scaledStr;
+    var iv=interpQty(pts,guestCount,type); var u=ovUnit(pts);
+    var qty=(iv!=null)?roundQty(iv):p.qty; var unit=u||p.unit;
+    return qty+(unit?' '+unit:'')+' '+p.name;
+  };
+  var _t; window.onIngEdit=function(el){ var li=el.closest('li.ied'); if(!li)return; clearTimeout(_t); _t=setTimeout(function(){captureOverride(li);},500); };
+  window.captureOverride=function(li){
+    var recipe=li.getAttribute('data-recipe'),ing=li.getAttribute('data-ing'),type=li.getAttribute('data-type')||'perpax',gc=+li.getAttribute('data-gc')||0,factor=parseFloat(li.getAttribute('data-factor'))||1,usePkg=li.getAttribute('data-pkg')==='1',recipeUnit=li.getAttribute('data-runit')||'';
+    var entered=parseFloat(li.querySelector('.qx').value); var enteredUnit=(li.querySelector('.ux').value||'').trim();
+    if(!isFinite(entered))return;
+    var recipeQty=usePkg?entered*factor:entered; var storeUnit=usePkg?recipeUnit:enteredUnit; var displayUnit=usePkg?enteredUnit:'';
+    var k=normIngKey(ing);
+    S.overrides=(S.overrides||[]).filter(function(o){return !(o.recipe===recipe&&normIngKey(o.ingredient)===k&&(+o.headcount)===gc);});
+    S.overrides.push({recipe:recipe,ingredient:ing,headcount:gc,quantity:recipeQty,unit:storeUnit,displayUnit:displayUnit,type:type,updatedAt:new Date().toISOString(),updatedBy:'guide'});
+    var tick=li.querySelector('.savetick'); if(tick){tick.textContent='\u2713 saved';tick.style.opacity='1';setTimeout(function(){tick.style.opacity='0';},1500);}
+    if(typeof apiFetch==='function'){ apiFetch('saveOverride',{recipe:recipe,ingredient:ing,headcount:gc,quantity:recipeQty,unit:storeUnit,displayUnit:displayUnit,type:type,by:'guide'}).catch(function(){}); }
+  };
+  function patchFn(name, edits){
+    try{
+      if(typeof window[name]!=='function'){ console.warn('[oo-cal] '+name+' not found'); return false; }
+      var src=window[name].toString(), applied=0;
+      edits.forEach(function(e){ if(src.indexOf(e[0])>-1){ src=src.replace(e[0],e[1]); applied++; } else console.warn('[oo-cal] '+name+': anchor not found'); });
+      if(applied){ window[name]=eval('('+src+')'); }
+      return applied===edits.length;
+    }catch(err){ console.warn('[oo-cal] patch '+name+' failed: '+err.message); return false; }
+  }
+  function applyPatches(){
+    patchFn('sc', [[ "(oz|lb|lbs|cup|cups|tbsp|tsp|can|cans|bunch|clove|cloves|bag|scoop|slice|slices)",
+                     "(oz|lbs?|cups?|tbsp|tsp|cans?|bunch(?:es)?|cloves?|bags?|scoops?|slices?)" ]]);
+    patchFn('buildPacket', [
+      ["return '<li>'+scaled2s+'</li>';","return ovLi(r['Recipe Name'],scaled2s,'shared',guestCount);"],
+      ["return '<li>'+scaled2+'</li>';","return ovLi(r['Recipe Name'],scaled2,'perdo',guestCount);"],
+      ["if(cname && pkg!==scaled) return '<li>'+pkg+' '+cname+'</li>';","if(cname && pkg!==scaled) return ovLi(r['Recipe Name'],scaled,isAlc?'alc':'perpax',guestCount,pkg,cname,Number(mv['Package Size']));"],
+      ["if(cname && pkg===scaled) return '<li>'+scaled+'</li>';","if(cname && pkg===scaled) return ovLi(r['Recipe Name'],scaled,isAlc?'alc':'perpax',guestCount);"],
+      ["return '<li>'+scaled+'</li>';","return ovLi(r['Recipe Name'],scaled,isAlc?'alc':'perpax',guestCount);"],
+      ["scaledDO=sc(ing,numDO2)","scaledDO=scOv(r['Recipe Name'],sc(ing,numDO2),'perdo',guestCount)"],
+      ["sc(ing2, isAlcShop?guestCount:n)","scOv(r['Recipe Name'],sc(ing2, isAlcShop?guestCount:n),isAlcShop?'alc':'perpax',guestCount)"]
+    ]);
+    if(typeof processPastedRoster==='function' && typeof processPDFText==='function'){
+      window.processPastedRoster=function(){ var ta=document.getElementById('paste-roster'); if(!ta||!ta.value.trim()){alert('Paste roster text first');return;} var statusEl=document.getElementById('paste-status'); var text=ta.value.replace(/\r\n/g,'\n').replace(/\r/g,'\n'); processPDFText(text,statusEl); if(statusEl&&statusEl.textContent.indexOf('Imported')>-1) ta.value=''; };
+    }
+    if(typeof apiFetch==='function'){
+      apiFetch('getOverrides').then(function(r){ if(r&&r.success){ S.overrides=r.overrides||[]; if(typeof log==='function') log((S.overrides||[]).length+' overrides','ok'); } }).catch(function(){});
+    }
+    console.log('[oo-cal] calibration engine active');
+  }
+  if(document.readyState==='complete' || document.readyState==='interactive'){ setTimeout(applyPatches,0); }
+  else { window.addEventListener('DOMContentLoaded', applyPatches); }
+})();
+</script>
 </body>
 </html>
 
