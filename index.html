@@ -2116,6 +2116,42 @@ function buildPacket(id,trip,gs,plan){
       };
       if(typeof parseFlybookRoster==='function'){var __op=parseFlybookRoster;window.parseFlybookRoster=function(t){var m=[];try{m=ooParseRoster(t)||[];}catch(e){}var o=[];try{o=__op(t)||[];}catch(e){}return (m.length>o.length)?m:o;};}
     })();
+    (function(){
+      /* (1) Dutch-oven opt-out: skip the hardcoded CLASSIC 3-day default when opt-out is on,
+            so 3-day trips route through the scoring path that already hard-excludes DO (score > -999). */
+      try{
+        if(typeof autoAssignMeals==='function' && autoAssignMeals.toString().indexOf('if (days === 3)')>-1){
+          window.autoAssignMeals = eval('('+autoAssignMeals.toString().split('if (days === 3)').join('if (days === 3 && !isFireBan())')+')');
+        }
+      }catch(e){ console.warn('[oo] DO opt-out patch failed', e); }
+
+      /* (2) Guide notation in the roster header: "N Guests + G guide(s) = T total" */
+      try{
+        var bpFind = "+guestCount+' Guests</div>'";
+        if(typeof window.buildPacket==='function' && window.buildPacket.toString().indexOf(bpFind)>-1){
+          var bpRepl = "+guestCount+' Guests + '+numGuides+(numGuides===1?' guide':' guides')+' = '+n+' total</div>'";
+          window.buildPacket = eval('('+window.buildPacket.toString().split(bpFind).join(bpRepl)+')');
+        }
+      }catch(e){ console.warn('[oo] guide notation patch failed', e); }
+
+      /* (3) Rename the "Fire Ban Active" control to "Opt out for Dutch Oven" */
+      function ooRenameDO(){
+        try{
+          var ls=document.querySelectorAll('label');
+          for(var i=0;i<ls.length;i++){
+            if(/fire\s*ban/i.test(ls[i].textContent)){
+              var inp=ls[i].querySelector('input');
+              if(inp){ ls[i].innerHTML=''; ls[i].appendChild(inp); ls[i].appendChild(document.createTextNode(' Opt out for Dutch Oven')); }
+              else { ls[i].textContent='Opt out for Dutch Oven'; }
+            }
+          }
+          var ds=document.querySelectorAll('div');
+          for(var j=0;j<ds.length;j++){ if(ds[j].textContent==='Excludes Dutch Oven recipes'){ ds[j].textContent='Excludes anything that requires a Dutch oven'; } }
+        }catch(e){}
+      }
+      ooRenameDO();
+      try{ new MutationObserver(function(){ ooRenameDO(); }).observe(document.documentElement,{childList:true,subtree:true}); }catch(e){}
+    })();
 console.log('[oo] calibration + live shopping active');
   }
   if(document.readyState==='complete'||document.readyState==='interactive'){setTimeout(applyPatches,0);}else{window.addEventListener('DOMContentLoaded',applyPatches);}
