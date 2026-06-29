@@ -2092,7 +2092,31 @@ function buildPacket(id,trip,gs,plan){
     // observe #con: when a packet renders, install/refresh the live shopping list
     var con=document.getElementById('con');
     if(con&&window.MutationObserver){var mo=new MutationObserver(function(){if(con.querySelector('li.ied')&&!con.querySelector('#oo-shop-wrap'))ooRefreshShopping();});mo.observe(con,{childList:true,subtree:true});}
-    console.log('[oo] calibration + live shopping active');
+        (function(){function rxe(s){return String(s).replace(/[.*+?^${}()|[\]\\]/g,'\\$&');}
+      window.ooParseRoster=function(text){
+        text=String(text||'').replace(/\r\n?/g,'\n');
+        var am=text.match(/^(.+?)\s*-\s*\d+\s*Guest/m); var activity=am?am[1].trim():'';
+        var contacts={};var hre=/^(.+?)\s*-\s*Email:\s*(\S[^\n]*?)\s*-\s*Phone:\s*(\S[^\n]*?)\s*-\s*Age:\s*(\d+)/gim,hm;
+        while((hm=hre.exec(text))){contacts[hm[1].trim().toLowerCase()]={email:hm[2].trim(),phone:hm[3].trim(),age:hm[4]};}
+        var waived={};var ws=text.indexOf('Signed Waivers');
+        if(ws>-1){var we=text.indexOf('Reservation Questions');text.slice(ws,we>-1?we:undefined).split('\n').forEach(function(l){var m=l.match(/^(.+?)\s+\S+@\S+\s+.*Release Form/i);if(m)waived[m[1].trim().toLowerCase()]=true;});}
+        var qs=text.indexOf('Reservation Questions');var q=qs>-1?text.slice(qs):text;
+        var secRe=new RegExp('^'+rxe(activity)+'\\s*-\\s*(.+)$','gim'),heads=[],m2;
+        while((m2=secRe.exec(q))){heads.push({name:m2[1].trim(),start:m2.index,hlen:m2[0].length});}
+        function field(b,label){var mm=b.match(new RegExp('^'+rxe(label)+'\\s*(.*)$','im'));return mm?mm[1].trim():'';}
+        var guests=[];
+        for(var i=0;i<heads.length;i++){var name=heads[i].name;if(/^\d+\s*Guest/i.test(name)||/Attending/i.test(name))continue;
+          var block=q.slice(heads[i].start+heads[i].hlen,(i+1<heads.length)?heads[i+1].start:q.length);
+          var diet=field(block,'Common Dietary Restrictions');if(diet===''||/^none$/i.test(diet))diet='None';
+          var c=contacts[name.toLowerCase()]||{};
+          var sbRaw=field(block,'Will you need a sleeping bag and pad?');var sb=/rent/i.test(sbRaw)?'Rental':/own/i.test(sbRaw)?'Own':sbRaw;
+          var tentRaw=field(block,'Tent Needs');var tent=/provided|outdoor odyssey/i.test(tentRaw)?'OO Tent':/own|personal/i.test(tentRaw)?'Own Tent':tentRaw;
+          guests.push({name:name,dietCommon:diet,dietOther:field(block,'Other Dietary Restrictions'),age:field(block,'Age')||c.age||'',height:field(block,'Height in Inches'),weight:(field(block,'Weight in Pounds')||'').replace(/^~\s*/,''),email:field(block,'Email Address Must Be Provided')||c.email||'',phone:c.phone||'',tent:tent,sleepingBag:sb,medical:field(block,'Medical Conditions'),companions:field(block,'Travel Companions'),notes:field(block,'Internal Notes'),waiverSigned:!!waived[name.toLowerCase()],bio:false,resGroup:0,resGroupName:''});}
+        return guests;
+      };
+      if(typeof parseFlybookRoster==='function'){var __op=parseFlybookRoster;window.parseFlybookRoster=function(t){var m=[];try{m=ooParseRoster(t)||[];}catch(e){}var o=[];try{o=__op(t)||[];}catch(e){}return (m.length>o.length)?m:o;};}
+    })();
+console.log('[oo] calibration + live shopping active');
   }
   if(document.readyState==='complete'||document.readyState==='interactive'){setTimeout(applyPatches,0);}else{window.addEventListener('DOMContentLoaded',applyPatches);}
 })();
