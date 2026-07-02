@@ -1397,7 +1397,7 @@ function generateAll(){
 
 function buildPacket(id,trip,gs,plan){
   var guestCount=trip.numberGoing||gs.length||1;
-  var numGuides=guestCount>=9?2:1; // 1 guide <9 guests, 2 guides 9-16
+  var numGuides=guestCount>=10?2:1; // 1 guide <9 guests, 2 guides 9-16
   var n=guestCount+numGuides;
 
   // Build inventory lookup FIRST so findInv works throughout
@@ -1900,7 +1900,7 @@ function buildPacket(id,trip,gs,plan){
 (function(){
   if(!window.S) window.S={}; if(!S.overrides) S.overrides=[];
   function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
-  window.nFor=function(gc){gc=+gc||0;return gc+(gc>=9?2:1);};
+  window.nFor=function(gc){gc=+gc||0;return gc+(gc>=10?2:1);};
   window.roundQty=function(v){if(!isFinite(v))return 0;if(v<0)v=0;var r=Math.round(v*10)/10;return r===Math.floor(r)?Math.floor(r):r;};
   window.normIngKey=function(s){return String(s||'').toLowerCase().replace(/\([^)]*\)/g,' ').replace(/^[~\s]*[\d.\/\-\s]+/,'').replace(/^(oz|lbs?|cups?|tbsp|tsp|cans?|bunch(?:es)?|cloves?|bags?|scoops?|slices?|loaves?|pints?|quarts?|dozen|each|lb|qt|qt-bag|block|head|knob|stalk|packs?|round|small|baby|pita|clamshell|tub|jar|bottle|carton|box|packet|batch|log)\s+/i,'').replace(/[^a-z0-9 ]+/g,' ').replace(/\s+/g,' ').trim();};
   window.getCalPoints=function(recipe,n){var k=normIngKey(n);return (S.overrides||[]).filter(function(o){return o.recipe===recipe&&normIngKey(o.ingredient)===k;}).sort(function(a,b){return (+a.headcount)-(+b.headcount);});};
