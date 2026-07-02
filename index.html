@@ -275,7 +275,7 @@ function hardReset() {
 sessionStorage.setItem('oo_version', APP_VERSION);
 
 
-var APPS_SCRIPT = 'https://script.google.com/macros/s/AKfycbwz6PEkFm4GVDhkmlrqYpzkHQJ2gbrL9SCFWknzXHjVvIsITMaCWeyUi11zDcAB2Nrq/exec';
+var APPS_SCRIPT = 'https://script.google.com/macros/s/AKfycbzuzOmuJWIrBfi6TUhZmD1fIxUNFktMBZGIKlV2qGW4NaEO3wpRrJUsnvSe7cqVGyIJ/exec';
 var FLYBOOK_BASE = 'https://go.theflybook.com';
 var MTYPES = ['Breakfast','Lunch','Appetizer','Dinner','Dessert'];
 var CC = {Breakfast:'#fffbeb',Lunch:'#f0fdf4',Appetizer:'#fef2f2',Dinner:'#eff6ff',Dessert:'#fdf4ff'};
@@ -2151,6 +2151,101 @@ function buildPacket(id,trip,gs,plan){
       }
       ooRenameDO();
       try{ new MutationObserver(function(){ ooRenameDO(); }).observe(document.documentElement,{childList:true,subtree:true}); }catch(e){}
+    })();
+    (function(){
+      /* ===== OO Save / Resume / All-Trips (backend V47) ===== */
+      var OO_EXEC='https://script.google.com/macros/s/AKfycbzuzOmuJWIrBfi6TUhZmD1fIxUNFktMBZGIKlV2qGW4NaEO3wpRrJUsnvSe7cqVGyIJ/exec';
+      function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+      function el(tag,attrs,html){var e=document.createElement(tag);if(attrs)for(var k in attrs)e.setAttribute(k,attrs[k]);if(html!=null)e.innerHTML=html;return e;}
+
+      window.ooSavePacket=function(rec){return fetch(OO_EXEC,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(Object.assign({action:'savePacket'},rec))}).then(function(r){return r.json();});};
+      window.ooListPackets=function(){return fetch(OO_EXEC+'?action=listPackets').then(function(r){return r.json();});};
+      window.ooGetPacket=function(id){return fetch(OO_EXEC+'?action=getPacket&tripId='+encodeURIComponent(id)).then(function(r){return r.json();});};
+
+      function tn(td){var t=(td&&td.trip)||{};return t.activityName||t.name||t.tripName||t.title||'Trip';}
+      function ts(td){var t=(td&&td.trip)||{};return t.startDate||t.start||t.date||t.startDateTime||t.tripStart||'';}
+      window.ooCaptureTrip=function(id){var td=S.tripData[id];if(!td)return null;var g=td.guests||[];return {tripId:String(id),tripName:tn(td),headcount:g.length,start:ts(td),savedBy:'guide',notes:(window.__ooNotes&&window.__ooNotes[id])||'',data:JSON.stringify({trip:td.trip,guests:g,plan:S.plans[id]||[]})};};
+
+      window.ooSaveCurrent=function(notes,cb,silent){
+        var ids=(S.selectedIds||[]).filter(function(id){return S.tripData[id];});
+        if(!ids.length){if(!silent)alert('Generate a packet first, then Save.');if(cb)cb(false);return;}
+        if(!window.__ooNotes)window.__ooNotes={};
+        if(notes!=null)ids.forEach(function(id){window.__ooNotes[id]=notes;});
+        var recs=ids.map(ooCaptureTrip).filter(Boolean);
+        var tooBig=recs.filter(function(r){return r.data.length>48000;});
+        if(tooBig.length){if(!silent)alert('This trip is too large to save to the sheet.');if(cb)cb(false);return;}
+        Promise.all(recs.map(function(r){return ooSavePacket(r).catch(function(){return {success:false};});})).then(function(res){
+          if(cb)cb(res.every(function(x){return x&&x.success;}));
+        });
+      };
+
+      window.ooResume=function(id){
+        return ooGetPacket(id).then(function(r){
+          if(!r||!r.success||!r.packet)throw new Error('not found');
+          var d=r.packet.data; if(typeof d==='string')d=JSON.parse(d||'{}');
+          S.tripData[id]={trip:d.trip,guests:d.guests,id:id};
+          S.plans[id]=d.plan||[];
+          S.selectedIds=[id];
+          if(!window.__ooNotes)window.__ooNotes={};window.__ooNotes[id]=r.packet.notes||'';
+          ooCloseModal();
+          if(typeof generateAll==='function')generateAll();
+        });
+      };
+
+      window.ooCloseModal=function(){var m=document.getElementById('oo-trips-modal');if(m)m.parentNode.removeChild(m);};
+      window.ooOpenModal=function(){
+        ooCloseModal();
+        var ov=el('div',{id:'oo-trips-modal',style:'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:99999;display:flex;align-items:center;justify-content:center'});
+        var box=el('div',{style:'background:#fff;border-radius:10px;max-width:560px;width:92%;max-height:82vh;overflow:auto;padding:18px;box-shadow:0 10px 40px rgba(0,0,0,.3)'});
+        box.appendChild(el('div',{style:'font-weight:700;font-size:16px;margin-bottom:4px'},'📁 Saved Trips'));
+        box.appendChild(el('div',{style:'font-size:12px;color:#777;margin-bottom:12px'},'Open a saved trip to review it, add guide notes, and re-issue. Corrections you make feed the recipe library.'));
+        var listWrap=el('div',{id:'oo-trips-list'},'<div style="color:#888">Loading…</div>');
+        box.appendChild(listWrap);
+        var close=el('button',{class:'btn',style:'margin-top:12px'},'Close');close.onclick=ooCloseModal;
+        box.appendChild(close);
+        ov.appendChild(box);ov.onclick=function(e){if(e.target===ov)ooCloseModal();};
+        document.body.appendChild(ov);
+        ooListPackets().then(function(r){
+          var ps=((r&&r.packets)||[]).filter(function(p){return p.savedBy!=='claude-probe';});
+          if(!ps.length){listWrap.innerHTML='<div style="color:#888">No saved trips yet. Generate a packet and click “Save Trip”.</div>';return;}
+          ps.sort(function(a,b){return new Date(b.savedAt||0)-new Date(a.savedAt||0);});
+          listWrap.innerHTML='';
+          ps.forEach(function(p){
+            var row=el('div',{style:'border:1px solid #e6e6e6;border-radius:8px;padding:10px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:10px'});
+            var when=p.savedAt?new Date(p.savedAt).toLocaleString():'';
+            var sd=p.start?new Date(p.start).toLocaleDateString():'';
+            var meta=el('div',null,'<div style="font-weight:600">'+esc(p.tripName||p.tripId)+'</div><div style="font-size:11px;color:#777">'+esc((p.headcount||0)+' guests'+(sd?' · '+sd:'')+(when?' · saved '+when:''))+'</div>'+(p.notes?'<div style="font-size:11px;color:#555;margin-top:3px">📝 '+esc(p.notes)+'</div>':''));
+            var btn=el('button',{class:'btn',style:'white-space:nowrap'},'Open / Resume');
+            btn.onclick=function(){btn.textContent='Loading…';btn.disabled=true;ooResume(p.tripId).catch(function(e){alert('Could not open: '+e.message);btn.textContent='Open / Resume';btn.disabled=false;});};
+            row.appendChild(meta);row.appendChild(btn);listWrap.appendChild(row);
+          });
+        }).catch(function(e){listWrap.innerHTML='<div style="color:#c00">Error loading: '+esc(e.message)+'</div>';});
+      };
+
+      function addFab(){
+        if(document.getElementById('oo-trips-fab'))return;
+        var b=el('button',{id:'oo-trips-fab',style:'position:fixed;left:16px;bottom:16px;z-index:9998;background:var(--forest,#1B4332);color:#fff;border:none;border-radius:22px;padding:10px 16px;font-weight:700;box-shadow:0 3px 12px rgba(0,0,0,.25);cursor:pointer'},'📁 Saved Trips');
+        b.onclick=ooOpenModal;
+        document.body.appendChild(b);
+      }
+      function addSaveBar(){
+        var con=document.getElementById('con');if(!con)return;
+        if(!/Guest Roster/.test(con.textContent)){var old=document.getElementById('oo-savebar');if(old)old.parentNode.removeChild(old);return;}
+        if(document.getElementById('oo-savebar'))return;
+        var bar=el('div',{id:'oo-savebar',style:'position:sticky;top:0;z-index:50;background:var(--sage,#40916C);color:#fff;padding:8px 12px;border-radius:8px;margin:0 0 12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap'});
+        bar.appendChild(el('span',{style:'font-weight:700'},'💾 Trip'));
+        var notes=el('input',{id:'oo-notes-input',placeholder:'Guide notes (optional)…',style:'flex:1 1 220px;border:none;border-radius:5px;padding:6px 8px;color:#123'});
+        var ids=(S.selectedIds||[]).filter(function(id){return S.tripData[id];});
+        if(ids.length&&window.__ooNotes&&window.__ooNotes[ids[0]])notes.value=window.__ooNotes[ids[0]];
+        var save=el('button',{class:'btn',style:'background:#fff;color:var(--forest,#1B4332);font-weight:700'},'Save Trip');
+        var stat=el('span',{id:'oo-save-stat',style:'font-size:12px'},'');
+        save.onclick=function(){save.disabled=true;stat.textContent='Saving…';ooSaveCurrent(notes.value,function(ok){save.disabled=false;stat.textContent=ok?'✓ Saved':'✗ Failed';setTimeout(function(){stat.textContent='';},2500);});};
+        bar.appendChild(notes);bar.appendChild(save);bar.appendChild(stat);
+        con.insertBefore(bar,con.firstChild);
+      }
+      try{ new MutationObserver(function(){addFab();addSaveBar();}).observe(document.documentElement,{childList:true,subtree:true}); }catch(e){}
+      addFab();
+      var _as; document.addEventListener('input',function(e){if(e.target&&e.target.closest&&e.target.closest('li.ied')){clearTimeout(_as);_as=setTimeout(function(){ooSaveCurrent(null,null,true);},1600);}},true);
     })();
 console.log('[oo] calibration + live shopping active');
   }
