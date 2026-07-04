@@ -2260,6 +2260,34 @@ function buildPacket(id,trip,gs,plan){
       };
       try{var st=document.createElement('style');st.textContent=".oo-brk{color:#6b7068;font-size:11px;font-weight:400}@media print{.oo-brk{color:#333;font-size:9px}}";document.head.appendChild(st);}catch(e){}
     })();
+    (function(){
+      var PASS='sanjuan2026';               /* <-- change this to set the crew access code */
+      var KEY='oo_gate_ok_v1';
+      function authed(){try{return localStorage.getItem(KEY)===PASS||sessionStorage.getItem(KEY)===PASS;}catch(e){return false;}}
+      if(authed())return;
+      var style=document.createElement('style');
+      style.textContent='#oo-gate{position:fixed;inset:0;z-index:2147483647;background:#1B4332;display:flex;align-items:center;justify-content:center;font-family:Arial,Helvetica,sans-serif}#oo-gate *{box-sizing:border-box}';
+      (document.head||document.documentElement).appendChild(style);
+      var g=document.createElement('div');g.id='oo-gate';
+      g.innerHTML='<div style="background:#fff;padding:28px 26px;border-radius:12px;max-width:340px;width:90%;text-align:center;box-shadow:0 12px 44px rgba(0,0,0,.45)">'
+        +'<div style="font-size:34px;line-height:1">🛶</div>'
+        +'<div style="font-weight:700;font-size:18px;margin:8px 0 2px;color:#1B4332">Outdoor Odysseys</div>'
+        +'<div style="color:#667;font-size:13px;margin-bottom:16px">Trip Packet Generator — crew access</div>'
+        +'<input id="oo-gate-pw" type="password" placeholder="Access code" autocomplete="current-password" style="width:100%;padding:10px;border:1.5px solid #cfd6d2;border-radius:6px;font-size:15px">'
+        +'<div id="oo-gate-err" style="color:#c0392c;font-size:12px;height:16px;margin:6px 0"></div>'
+        +'<button id="oo-gate-go" style="width:100%;padding:10px;background:#1B4332;color:#fff;border:none;border-radius:6px;font-weight:700;font-size:15px;cursor:pointer">Enter</button>'
+        +'<label style="display:flex;align-items:center;gap:6px;justify-content:center;margin-top:12px;font-size:12px;color:#667"><input id="oo-gate-remember" type="checkbox" checked> Remember me on this device</label>'
+        +'</div>';
+      function tryAuth(){
+        var v=(document.getElementById('oo-gate-pw').value||'').trim();
+        if(v===PASS){
+          try{ if(document.getElementById('oo-gate-remember').checked)localStorage.setItem(KEY,PASS); else sessionStorage.setItem(KEY,PASS); }catch(e){}
+          if(g.parentNode)g.parentNode.removeChild(g); if(style.parentNode)style.parentNode.removeChild(style);
+        } else { document.getElementById('oo-gate-err').textContent='Incorrect code'; var pw=document.getElementById('oo-gate-pw'); pw.value=''; pw.focus(); }
+      }
+      function mount(){ document.body.appendChild(g); document.getElementById('oo-gate-go').onclick=tryAuth; var pw=document.getElementById('oo-gate-pw'); pw.addEventListener('keydown',function(e){if(e.key==='Enter')tryAuth();}); setTimeout(function(){pw.focus();},50); }
+      if(document.body)mount(); else document.addEventListener('DOMContentLoaded',mount);
+    })();
 console.log('[oo] calibration + live shopping active');
   }
   if(document.readyState==='complete'||document.readyState==='interactive'){setTimeout(applyPatches,0);}else{window.addEventListener('DOMContentLoaded',applyPatches);}
