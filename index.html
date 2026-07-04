@@ -2000,7 +2000,7 @@ function buildPacket(id,trip,gs,plan){
       var name=li.getAttribute('data-ing'); var rq=parseFloat(li.getAttribute('data-recipeqty')); var ru=li.getAttribute('data-runit')||'';
       if(!name||!isFinite(rq)||rq<=0)return;
       var canon=ALIAS[name]||name; var q=toBaseQty(canon,ru,rq);
-      if(!agg[canon])agg[canon]={qty:0,runit:ru}; agg[canon].qty+=q;
+      if(!agg[canon])agg[canon]={qty:0,runit:ru,byR:{}}; agg[canon].qty+=q; var _rc=li.getAttribute('data-recipe')||''; if(_rc){agg[canon].byR=agg[canon].byR||{}; agg[canon].byR[_rc]=(agg[canon].byR[_rc]||0)+rq;}
     });
     var groups={}; function push(s,l,h){var k=s+'|'+l;(groups[k]=groups[k]||[]).push(h);}
     Object.keys(agg).sort().forEach(function(canon){
@@ -2009,7 +2009,7 @@ function buildPacket(id,trip,gs,plan){
         if(per==null)line="<b>as needed</b> &mdash; "+esc(canon)+" <span class='n'>(~"+R2(a.qty)+" "+esc(a.runit)+", from kit)</span>";
         else{var buy=Math.ceil(a.qty/per-1e-9);line="<b>"+buy+" "+esc(pu)+"</b> &mdash; "+esc(canon)+" <span class='n'>(need ~"+R2(a.qty)+(a.runit?' '+esc(a.runit):'')+")</span>";}
       } else {src='shop';loc='Other';line="<b>"+R2(a.qty)+(a.runit?' '+esc(a.runit):'')+"</b> &mdash; "+esc(canon);}
-      push(src,loc,line);
+      line=(window.ooBrkAppend?window.ooBrkAppend(line,agg[canon]&&agg[canon].byR,a.runit):line);push(src,loc,line);
     });
     var nLunch=0;(plan||[]).forEach(function(d){if(d&&d.Lunch)nLunch++;});var n=17;
     if(nLunch>0){push('shop','Lunch',"<b>"+(3*nLunch)+" bag</b> &mdash; Chips - Kettle <span class='n'>(~3/lunch x "+nLunch+")</span>");
@@ -2246,6 +2246,19 @@ function buildPacket(id,trip,gs,plan){
       try{ new MutationObserver(function(){addFab();addSaveBar();}).observe(document.documentElement,{childList:true,subtree:true}); }catch(e){}
       addFab();
       var _as; document.addEventListener('input',function(e){if(e.target&&e.target.closest&&e.target.closest('li.ied')){clearTimeout(_as);_as=setTimeout(function(){ooSaveCurrent(null,null,true);},1600);}},true);
+    })();
+    (function(){
+      window.ooBrkAppend=function(line, byR, runit){
+        if(!byR) return line;
+        var recs=Object.keys(byR); if(!recs.length) return line;
+        recs.sort(function(a,b){return byR[b]-byR[a];});
+        function R2s(v){v=Math.round(v*10)/10;return v===Math.floor(v)?String(Math.floor(v)):String(v);}
+        var unit=(runit&&!/^(each|ct|count)$/i.test(runit))?(' '+runit):'';
+        var txt=recs.map(function(r){return R2s(byR[r])+unit+' '+r;}).join(', ');
+        var e=function(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');};
+        return line+" <span class='oo-brk'>— "+e(txt)+"</span>";
+      };
+      try{var st=document.createElement('style');st.textContent=".oo-brk{color:#6b7068;font-size:11px;font-weight:400}@media print{.oo-brk{color:#333;font-size:9px}}";document.head.appendChild(st);}catch(e){}
     })();
 console.log('[oo] calibration + live shopping active');
   }
