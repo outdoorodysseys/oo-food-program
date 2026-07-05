@@ -2288,6 +2288,48 @@ function buildPacket(id,trip,gs,plan){
       function mount(){ document.body.appendChild(g); document.getElementById('oo-gate-go').onclick=tryAuth; var pw=document.getElementById('oo-gate-pw'); pw.addEventListener('keydown',function(e){if(e.key==='Enter')tryAuth();}); setTimeout(function(){pw.focus();},50); }
       if(document.body)mount(); else document.addEventListener('DOMContentLoaded',mount);
     })();
+    (function(){
+      /* Editable recipe instructions — each recipe card's Prep Notes becomes inline-editable; edits save to the recipe library (Prep Notes) so future packets use them. */
+      var _nt;
+      window.ooNoteEdit=function(el){ clearTimeout(_nt); var t=el; _nt=setTimeout(function(){ ooNoteSave(t); }, 800); };
+      window.ooNoteSave=function(el){
+        var recipe=el.getAttribute('data-recipe'); if(!recipe) return;
+        var note=(el.innerText||'').replace(/ /g,' ').replace(/\n{3,}/g,'\n\n').trim();
+        try{ (window.S&&S.recipes||[]).forEach(function(r){ if(r['Recipe Name']===recipe) r['Prep Notes']=note; }); }catch(e){}
+        var tick=el.parentNode&&el.parentNode.querySelector('.oo-nt-tick');
+        if(tick) tick.textContent='saving…';
+        if(typeof apiFetch==='function'){
+          apiFetch('saveRecipeNote',{recipe:recipe, note:note}).then(function(r){
+            if(tick){ tick.textContent=(r&&r.success)?'✓ saved to library':'✓ saved (this session)'; setTimeout(function(){tick.textContent='';},2600); }
+          }).catch(function(){ if(tick){ tick.textContent='✓ saved (this session)'; setTimeout(function(){tick.textContent='';},2600); } });
+        }
+      };
+      function enhance(){
+        var cards=document.querySelectorAll('.mc');
+        for(var i=0;i<cards.length;i++){
+          var card=cards[i];
+          if(card.getAttribute('data-oo-nt')) continue;
+          var li=card.querySelector('li.ied[data-recipe]');
+          var mcn=card.querySelector('.mcn');
+          var recipe=li?li.getAttribute('data-recipe'):(mcn?mcn.textContent.trim():'');
+          if(!recipe) continue;
+          var nt=card.querySelector('.nt');
+          if(!nt){ var body=card.querySelector('.mcb')||card; nt=document.createElement('div'); nt.className='nt'; body.appendChild(nt); }
+          nt.setAttribute('contenteditable','true');
+          nt.classList.add('oo-ed-nt');
+          nt.setAttribute('data-recipe',recipe);
+          nt.setAttribute('data-ph','Tap to add prep notes / instructions…');
+          nt.setAttribute('oninput','ooNoteEdit(this)');
+          if(!(nt.nextSibling && nt.nextSibling.className && /oo-nt-tick/.test(nt.nextSibling.className))){
+            var tk=document.createElement('div'); tk.className='oo-nt-tick'; nt.parentNode.insertBefore(tk, nt.nextSibling);
+          }
+          card.setAttribute('data-oo-nt','1');
+        }
+      }
+      try{ var st=document.createElement('style'); st.textContent='.oo-ed-nt{outline:none;border:1px dashed transparent;border-radius:4px;padding:2px 5px;transition:border-color .15s;min-height:1.2em;cursor:text}.oo-ed-nt:hover{border-color:var(--stone,#cfd6d2)}.oo-ed-nt:focus{border-color:var(--forest,#1B4332);background:#fff}.oo-ed-nt:empty:before{content:attr(data-ph);color:#9aa2a0;font-style:italic}.oo-nt-tick{font-size:10px;color:var(--sage,#40916C);min-height:12px;padding:0 5px}@media print{.oo-ed-nt{border:none!important;padding:0}.oo-nt-tick{display:none}}'; document.head.appendChild(st); }catch(e){}
+      try{ new MutationObserver(function(){ enhance(); }).observe(document.documentElement,{childList:true,subtree:true}); }catch(e){}
+      enhance();
+    })();
 console.log('[oo] calibration + live shopping active');
   }
   if(document.readyState==='complete'||document.readyState==='interactive'){setTimeout(applyPatches,0);}else{window.addEventListener('DOMContentLoaded',applyPatches);}
